@@ -31,7 +31,7 @@ def train(args):
         for i,(x,y) in enumerate(tqdm(dataloader)):
             pred = model.forward(x)
             loss = loss_fn(pred,y)
-            dz = loss_fn.backward(pred,y)
+            dz = loss_fn.backward(pred)
             optimizer.update(dz)
             loss_ += loss
         
