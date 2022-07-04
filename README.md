@@ -13,3 +13,6 @@
 Softmax와 Sigmoid는 e^i처럼 제곱형태로 계산하는 과정이 있습니다. 학습 과정 중에 입력되는 값이 갑자기 커지게 되면 오버플로우가 발생할 수 있습니다.  
 - `Overflow (34, Numerical result out of range)`
 - round로 입력되는 값과 출력하는 값을 반올림하여 임시로 해결했지만 가끔씩 발생하고 있습니다.
+
+## Post
+[https://emeraldgoose.github.io/pytorch/dl-implement/](https://emeraldgoose.github.io/pytorch/dl-implement/)
