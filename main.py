@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import argparse
 from hcrot import layers, dataset, optim, utils
 from tqdm.auto import tqdm
 
@@ -18,7 +19,35 @@ class Model(object):
             x = module(x)
         return x
 
+def train(args):
+    model = Model(input_len=28*28,hidden=args.hidden_size,num_classes=10)
+    loss_fn = layers.CrossEntropyLoss()
+    optimizer = optim.Optimizer(model,args.lr_rate)
+
+    for epoch in range(args.epochs):
+        loss_, correct = 0, 0
+        
+        # train
+        for i,(x,y) in enumerate(tqdm(dataloader)):
+            pred = model.forward(x)
+            loss = loss_fn(pred,y)
+            dz = loss_fn.backward(pred,y)
+            optimizer.update(dz)
+            loss_ += loss
+        
+        # test
+        for i, (x,y) in enumerate(tqdm(testloader)):
+            pred = model.forward(x)
+            correct += sum([(a==b) for a,b in zip(utils.argmax(pred),y)]) 
+
+        print(f'epoch = [{epoch+1}] | loss = {loss_/len(dataloader)} | ACC = {correct/(len(testloader)*len(y))}')
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='hcrot example training code')
+    parser.add_argument('--lr_rate', default=1e-2, type=float, help='Learning Rate')
+    parser.add_argument('--hidden_size', default=28, type=int, help='Hidden Layer size')
+    parser.add_argument('--epochs', default=10, type=int, help='Epochs')
+
     df = pd.read_csv('./datasets/mnist_test.csv')
     label = df['7'].to_numpy()
     df = df.drop('7',axis=1)
@@ -35,24 +64,5 @@ if __name__ == "__main__":
     dataloader = dataset.Dataloader(train_image, train_label, batch_size=50, shuffle=True)
     testloader = dataset.Dataloader(test_image, test_label, batch_size=10, shuffle=False)
 
-    model = Model(input_len=28*28,hidden=28,num_classes=10)
-    loss_fn = layers.CrossEntropyLoss()
-    optimizer = optim.Optimizer(model,0.01)
-
-    for epoch in range(30):
-        loss_, correct = 0, 0
-        
-        # train
-        for i,(x,y) in enumerate(tqdm(dataloader)):
-            pred = model.forward(x)
-            loss = loss_fn(pred,y)
-            dz = loss_fn.backward(pred,y)
-            optimizer.update(dz)
-            loss_ += loss
-        
-        # test
-        for i, (x,y) in enumerate(tqdm(testloader)):
-            pred = model.forward(x)
-            correct += sum([(a==b) for a,b in zip(utils.argmax(pred),y)]) 
-
-        print(f'epoch = [{epoch+1}] | loss = {loss_/len(dataloader)} | ACC = {correct/len(testloader)*len(y)}')
+    args = parser.parse_args()
+    train(args)
