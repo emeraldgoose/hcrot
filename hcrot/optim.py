@@ -14,7 +14,6 @@ class Optimizer:
             elif module.__class__.__name__ == "Linear":
                 dw, db = module.backward(dz)
                 dz = dot_numpy(dz,transpose(module.weight))
-                # weight -> L2 Regularization
                 module.weight = [\
                   [a-(self.lr_rate)*b for a,b in zip(module.weight[i],dw[i])] for i in range(len(dw))]
                 module.bias = [\
