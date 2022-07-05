@@ -39,23 +39,23 @@ class Linear:
         return dw, db
 
 class MSELoss:
-  def __call__(self, y_pred, y_true):
-    self.one_hot_enc = [[0 for _ in range(len(y_pred[0]))] for _ in range(len(y_pred))]
-    for i in range(len(y_true)): self.one_hot_enc[i][y_true[i]] = 1
-    sum_ = [sum([(a-b)**2 for a,b in zip(y_pred[i], self.one_hot_enc[i])])/len(y_pred[0]) for i in range(len(y_true))]
-    return sum(sum_)/len(y_true)
+    def __call__(self, y_pred, y_true):
+        self.one_hot_enc = [[0 for _ in range(len(y_pred[0]))] for _ in range(len(y_pred))]
+        for i in range(len(y_true)): self.one_hot_enc[i][y_true[i]] = 1
+        sum_ = [sum([(a-b)**2 for a,b in zip(y_pred[i], self.one_hot_enc[i])])/len(y_pred[0]) for i in range(len(y_true))]
+        return sum(sum_)/len(y_true)
 
-  def backward(self, y_pred):
-    batch = len(y_pred)
-    return [sum([a-b for a,b in zip(y_pred[i], self.one_hot_enc[i])]) / batch for i in range(batch)]
+    def backward(self, y_pred):
+        batch = len(y_pred)
+        return [sum([a-b for a,b in zip(y_pred[i], self.one_hot_enc[i])]) / batch for i in range(batch)]
 
 class CrossEntropyLoss:
-  def __call__(self, y_pred, y_true):
-    import numpy as np
-    batch, y_pred, delta = len(y_pred), np.array(y_pred), 1e-7
-    self.one_hot_enc = np.zeros(y_pred.shape)
-    for i in range(len(y_true)): self.one_hot_enc[i][y_true[i]] = 1
-    return -np.sum(self.one_hot_enc * np.log(y_pred + delta)) / batch
-  
-  def backward(self, y_pred):
-    return [[-self.one_hot_enc[i][j].tolist()/y_pred[i][j] for j in range(len(y_pred[i]))] for i in range(len(y_pred))]
+    def __call__(self, y_pred, y_true):
+        import numpy as np
+        batch, y_pred, delta = len(y_pred), np.array(y_pred), 1e-7
+        self.one_hot_enc = np.zeros(y_pred.shape)
+        for i in range(len(y_true)): self.one_hot_enc[i][y_true[i]] = 1
+        return -np.sum(self.one_hot_enc * np.log(y_pred + delta)) / batch
+    
+    def backward(self, y_pred):
+        return [[-self.one_hot_enc[i][j].tolist()/y_pred[i][j] for j in range(len(y_pred[i]))] for i in range(len(y_pred))]
