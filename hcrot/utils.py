@@ -37,6 +37,6 @@ def flatten(x):
     return [[x[i][j] for i in range(len(x)) for j in range(len(x[0]))]]
 
 def argmax(inputs):
-  # 2 dim
-  max_ = [max(li) for li in inputs]
-  return [inputs[i].index(max_[i]) for i in range(len(inputs))]
+    # 2 dim
+    max_ = [max(li) for li in inputs]
+    return [inputs[i].index(max_[i]) for i in range(len(inputs))]
