@@ -40,3 +40,8 @@ def argmax(inputs):
     # 2 dim
     max_ = [max(li) for li in inputs]
     return [inputs[i].index(max_[i]) for i in range(len(inputs))]
+
+def one_hot_encoding(x, y):
+    one_hot_enc = [[0 for _ in range(len(x[0]))] for _ in range(len(x))]
+    for i in range(len(x)): one_hot_enc[i][y[i]] = 1
+    return one_hot_enc
