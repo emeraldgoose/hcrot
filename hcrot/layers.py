@@ -40,8 +40,7 @@ class Linear:
 
 class MSELoss:
     def __call__(self, y_pred, y_true):
-        self.one_hot_enc = [[0 for _ in range(len(y_pred[0]))] for _ in range(len(y_pred))]
-        for i in range(len(y_true)): self.one_hot_enc[i][y_true[i]] = 1
+        self.one_hot_enc = one_hot_encoding(y_pred, y_true)
         sum_ = [sum([(a-b)**2 for a,b in zip(y_pred[i], self.one_hot_enc[i])]) for i in range(len(y_true))]
         return sum(sum_)/len(y_true)
 
@@ -51,11 +50,11 @@ class MSELoss:
 
 class CrossEntropyLoss:
     def __call__(self, y_pred, y_true):
-        import numpy as np
-        batch, y_pred, delta = len(y_pred), np.array(y_pred), 1e-7
-        self.one_hot_enc = np.zeros(y_pred.shape)
-        for i in range(len(y_true)): self.one_hot_enc[i][y_true[i]] = 1
-        return -np.sum(self.one_hot_enc * np.log(y_pred + delta)) / batch
+        batch, delta = len(y_pred), 1e-7
+        self.one_hot_enc = one_hot_encoding(y_pred, y_true)
+        logged = [[math.log(y_pred[i][j] + delta) for j in range(len(y_pred[0]))] for i in range(len(y_pred))]
+        sum_ = sum([logged[i][j] for i in range(len(logged)) for j in range(len(logged[0])) if self.one_hot_enc[i][j]])
+        return -sum_ / batch
     
     def backward(self, y_pred):
-        return [[-self.one_hot_enc[i][j].tolist()/y_pred[i][j] for j in range(len(y_pred[i]))] for i in range(len(y_pred))]
+        return [[-self.one_hot_enc[i][j]/y_pred[i][j] for j in range(len(y_pred[i]))] for i in range(len(y_pred))]
