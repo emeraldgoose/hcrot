@@ -21,11 +21,15 @@ class MaxPool2d:
         wout = math.floor((win - (self.kernel_size[1]-1) - 1) / self.stride[1] + 1)
         ret = np.zeros((batch, channel, hout, wout))
         for b in range(batch):
+            b_ = []
             for c in range(channel):
+                c_ = []
                 for h in range(hout):
                     for w in range(wout):
                         ret[b][c][h][w], mm, nn = self.max_in_box(x[b][c],h,w)
-                        self.gradient.append((b,c,mm,nn))
+                        c_.append((b,c,mm,nn))
+                b_.append(c_)
+            self.gradient.append(b_)
         return ret
 
     def max_in_box(self, x, h, w):
@@ -40,7 +44,13 @@ class MaxPool2d:
         return max_value, mm, nn
 
     def backward(self, dout):
-        pass
+        dx = np.zeros(self.input_shape)
+        for b in range(len(dout)):
+            for c in range(len(dout[0])):
+                flat_dout = flatten(dout[b][c])[0]
+                for g_, v in zip(self.gradient[b][c], flat_dout):
+                    dx[b][c][g_[2]][g_[3]] = v
+        return dx
 
 class AvgPool2d:
     def __call__(self, x):
