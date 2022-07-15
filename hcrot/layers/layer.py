@@ -1,4 +1,5 @@
 from hcrot.utils import *
+import numpy as np
 
 class Linear:
     def __init__(self, in_features, out_features):
@@ -17,3 +18,34 @@ class Linear:
         dw = dot_numpy(transpose(self.X), dz)
         db = [[sum([dz[i][j] for i in range(len(dz))])/len(dz) for j in range(len(dz[0]))]]
         return dw, db
+
+class Flatten:
+    def __init__(self, start_dim = 1, end_dim = -1):
+        self.start_dim = start_dim
+        self.end_dim = end_dim
+    
+    def __call__(self, x):
+        size_ = self.shape(x)
+        if self.end_dim == -1: self.end_dim = len(size_)-1
+        if self.start_dim == self.end_dim: return x
+        return np.array(self.flatten_(x,0,self.start_dim,self.end_dim)).astype(np.float32)
+        
+    def flatten_(self, x, dim, sdim, edim):
+        if sdim <= dim < edim:
+            ret = []
+            for i in range(len(x)):
+                ret += self.flatten_(x[i],dim+1,sdim,edim)
+        elif dim == edim: return x.tolist()
+        else:
+            ret = []
+            for i in range(len(x)):
+                ret.append(self.flatten_(x[i],dim+1,sdim,edim))
+        return ret
+
+    def backward(self, dout):
+        pass
+
+    def shape(self, x):
+        ret = [len(x)]
+        if isinstance(x[0], np.ndarray): ret += self.shape(x[0])
+        return ret
