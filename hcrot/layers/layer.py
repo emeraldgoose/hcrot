@@ -23,9 +23,11 @@ class Flatten:
     def __init__(self, start_dim = 1, end_dim = -1):
         self.start_dim = start_dim
         self.end_dim = end_dim
+        self.ori_shape = None
     
     def __call__(self, x):
-        size_ = self.shape(x)
+        size_ = shape(x)
+        self.ori_shape = size_
         if self.end_dim == -1: self.end_dim = len(size_)-1
         if self.start_dim == self.end_dim: return x
         return np.array(self.flatten_(x,0,self.start_dim,self.end_dim)).astype(np.float32)
@@ -43,9 +45,5 @@ class Flatten:
         return ret
 
     def backward(self, dout):
-        pass
-
-    def shape(self, x):
-        ret = [len(x)]
-        if isinstance(x[0], np.ndarray): ret += self.shape(x[0])
-        return ret
+        dout = np.array(dout)
+        return np.reshape(dout,self.ori_shape).tolist()

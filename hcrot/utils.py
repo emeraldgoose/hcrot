@@ -1,4 +1,5 @@
 import math, random
+import numpy as np
 exp = math.e
 
 def dot(x, y):
@@ -45,3 +46,8 @@ def one_hot_encoding(x, y):
     one_hot_enc = [[0 for _ in range(len(x[0]))] for _ in range(len(x))]
     for i in range(len(x)): one_hot_enc[i][y[i]] = 1
     return one_hot_enc
+
+def shape(x):
+    ret = [len(x)]
+    if isinstance(x[0], np.ndarray) or isinstance(x[0],list): ret += shape(x[0])
+    return ret
