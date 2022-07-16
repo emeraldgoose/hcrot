@@ -15,7 +15,7 @@ class MaxPool2d:
         self.input_shape = None
     
     def __call__(self, x):
-        self.input_shape = x.shape
+        self.input_shape = shape(x)
         batch, channel, hin, win = len(x), len(x[0]), len(x[0][0]), len(x[0][0][0])
         hout = math.floor((hin - (self.kernel_size[0]-1) - 1) / self.stride[0] + 1)
         wout = math.floor((win - (self.kernel_size[1]-1) - 1) / self.stride[1] + 1)
