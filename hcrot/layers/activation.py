@@ -19,3 +19,13 @@ class Sigmoid:
     def deriv(self, inputs):
         x = self(inputs)
         return [[round(x[i][j]*(1-x[i][j]),4) for j in range(len(x[0]))] for i in range(len(x))]
+
+class ReLU:
+    def __call__(self, inputs):
+        # maximum dimension = 4D
+        self.mask = inputs > 0 # numpy
+        return inputs * self.mask
+      
+    def backward(self, inputs):
+        inputs = np.array(inputs)
+        return (self.mask * inputs).tolist()
