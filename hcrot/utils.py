@@ -3,10 +3,6 @@ import numpy as np
 exp = math.e
 
 def dot(x, y):
-    # (a,b) X (b,c) = (a,c)
-    # inputs must 2 dimension
-    assert len(x) and len(x[0]) and len(y) and len(y[0]), "list must 2 dimension"
-    assert len(x[0]) == len(y), "(a,b) X (b,c) = (a,c)"
     ret = [[0 for _ in range(len(y[0]))] for _ in range(len(x))]
     for i in range(len(x)):
         for j in range(len(y[0])):
@@ -16,12 +12,8 @@ def dot(x, y):
     return ret
 
 def dot_numpy(x, y):
-    import numpy as np
-    # function dot is too slow -> using numpy, return list
-    assert len(x) and len(x[0]) and len(y) and len(y[0]), "list must 2 dimension"
-    assert len(x[0]) == len(y), "(a,b) X (b,c) = (a,c)"
-    x2 = np.array(x).astype(np.float32)
-    y2 = np.array(y).astype(np.float32)
+    x2 = np.array(x, dtype=np.float32)
+    y2 = np.array(y, dtype=np.float32)
     return np.dot(x2,y2).tolist()
 
 def plus(x, y):
