@@ -1,4 +1,5 @@
 import math, random
+import pandas as pd
 import numpy as np
 exp = math.e
 
@@ -43,3 +44,8 @@ def shape(x):
     ret = [len(x)]
     if isinstance(x[0], np.ndarray) or isinstance(x[0],list): ret += shape(x[0])
     return ret
+
+def softmax_(x):
+    delta = 1e-7
+    sum_ = [sum(exp**i for i in x[j]) for j in range(len(x))]
+    return [[exp**i/(sum_[j]+delta) for i in x[j]] for j in range(len(x))]
