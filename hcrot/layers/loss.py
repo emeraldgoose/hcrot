@@ -13,13 +13,12 @@ class MSELoss:
 class CrossEntropyLoss:
     def __call__(self, y_pred, y_true):
         batch = len(y_pred)
-        self.y_true = y_true
-        soft_ = softmax_(y_pred)
-        log_soft_ = [[math.log(soft_[i][j]) for j in range(len(soft_[0]))] for i in range(len(soft_))]
-        return sum([-log_soft_[i][y_true[i]] for i in range(batch)]) / batch
+        s_ = softmax_(y_pred)
+        r_ = [[math.log(s_[i][j]) for j in range(len(s_[0]))] for i in range(len(s_))]
+        return sum([-r_[i][y_true[i]] for i in range(batch)]) / batch
 
-    def backward(self, y_pred):
+    def backward(self, y_pred, y_true):
         batch = len(y_pred)
-        soft_ = softmax_(y_pred)
-        log_soft_deriv = [[soft_[i][j]-1 if self.y_true[i]==j else soft_[i][j] for j in range(len(y_pred[0]))] for i in range(batch)]
-        return [[log_soft_deriv[i][j]/batch for j in range(len(y_pred[0]))] for i in range(batch)]
+        s_ = softmax_(y_pred)
+        r = [[s_[i][j]-1 if y_true[i]==j else s_[i][j] for j in range(len(y_pred[0]))] for i in range(batch)]
+        return [[r[i][j]/batch for j in range(len(y_pred[0]))] for i in range(batch)]

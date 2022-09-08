@@ -49,3 +49,13 @@ def softmax_(x):
     delta = 1e-7
     sum_ = [sum(exp**i for i in x[j]) for j in range(len(x))]
     return [[exp**i/(sum_[j]+delta) for i in x[j]] for j in range(len(x))]
+
+def convolve2d_(a, f):
+    # Ref: https://stackoverflow.com/a/43087771
+    import numpy as np
+    a = np.array(a)
+    f = np.array(f)
+    s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
+    strd = np.lib.stride_tricks.as_strided
+    subM = strd(a, shape = s, strides = a.strides * 2)
+    return np.einsum('ij,ijkl->kl', f, subM)
