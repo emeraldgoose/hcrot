@@ -17,7 +17,8 @@ class Linear:
     def backward(self, dz):
         dw = dot_numpy(transpose(self.X), dz)
         db = [[sum([dz[i][j] for i in range(len(dz))])/len(dz) for j in range(len(dz[0]))]]
-        return dw, db
+        dz = dot_numpy(dz,transpose(self.weight))
+        return dz, dw, db
 
 class Flatten:
     def __init__(self, start_dim = 1, end_dim = -1):

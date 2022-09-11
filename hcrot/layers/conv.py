@@ -37,17 +37,6 @@ class Conv2d:
         self.Z = ret
         return ret
 
-    def convolution(self, hout, wout, kernel, input):
-        ret = np.zeros((hout,wout))
-        for i in range(hout):
-            for j in range(wout):
-                ret[i][j] = self.position_sum((i*self.stride[0],j*self.stride[1]),kernel,input)
-        return ret
-
-    def position_sum(self, pos, kernel, input):
-        xpos, ypos = pos # input pos
-        return sum([input[xpos+i][ypos+j] * kernel[i][j] for j in range(len(kernel[0])) for i in range(len(kernel))])
-
     def Pad(self, x, padding):
         # (C, H, W)
         B, C, H, W = len(x), len(x[0]), len(x[0][0]), len(x[0][0][0])

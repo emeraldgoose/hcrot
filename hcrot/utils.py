@@ -59,3 +59,24 @@ def convolve2d_(a, f):
     strd = np.lib.stride_tricks.as_strided
     subM = strd(a, shape = s, strides = a.strides * 2)
     return np.einsum('ij,ijkl->kl', f, subM)
+
+def weight_update(weight, grad, lr_rate):
+    assert shape(weight) == shape(grad), "must same shape weight, grad"
+    ret = []
+    if isinstance(weight, list):
+        w_shape = shape(weight)
+        if len(w_shape) == 1:
+            ret = [w_ - (g_ * lr_rate) for w_, g_ in zip(weight, grad)]
+        else:
+            for depth in range(w_shape[0]):
+                ret.append(weight_update(weight[depth],grad[depth],lr_rate))
+    return ret
+
+def zeros(size):
+    ret = []
+    if len(size)==1:
+        ret = [0 for _ in range(size[0])]
+    else:
+        for _ in range(size[0]):
+            ret.append(zeros(size[1:]))
+    return ret
