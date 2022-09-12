@@ -22,10 +22,20 @@ class Sigmoid:
 
 class ReLU:
     def __call__(self, inputs):
-        # maximum dimension = 4D
-        self.mask = inputs > 0 # numpy
-        return inputs * self.mask
-      
+        self.mask = zeros(shape(inputs))
+        self.mask = self._masking(self.mask, inputs)
+        return element_wise_product(self.mask, inputs)
+    
+    def _masking(self, mask, inputs):
+        ret = []
+        if isinstance(mask, list):
+            s_ = shape(mask)
+            if len(s_) == 1:
+                ret = [1 if i_>0 else 0 for _, i_ in zip(self.mask, inputs)]
+            else:
+                for d_ in range(s_[0]):
+                    ret.append(self._masking(mask[d_],inputs[d_]))
+        return ret
+    
     def backward(self, inputs):
-        inputs = np.array(inputs)
-        return (self.mask * inputs).tolist()
+        return element_wise_product(self.mask, inputs)

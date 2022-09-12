@@ -61,7 +61,7 @@ def convolve2d_(a, f):
     return np.einsum('ij,ijkl->kl', f, subM)
 
 def weight_update(weight, grad, lr_rate):
-    assert shape(weight) == shape(grad), "must same shape weight, grad"
+    assert shape(weight) == shape(grad)
     ret = []
     if isinstance(weight, list):
         w_shape = shape(weight)
@@ -73,10 +73,20 @@ def weight_update(weight, grad, lr_rate):
     return ret
 
 def zeros(size):
-    ret = []
     if len(size)==1:
         ret = [0 for _ in range(size[0])]
     else:
-        for _ in range(size[0]):
-            ret.append(zeros(size[1:]))
+        tmp = zeros(size[1:])
+        ret = [tmp for _ in range(size[0])]
+    return ret
+
+def element_wise_product(a, b):
+    ret = []
+    if isinstance(a, list):
+        s_ = shape(a)
+        if len(s_) == 1:
+            ret = [a_ * b_ for a_, b_ in zip(a, b)]
+        else:
+            for d_ in range(s_[0]):
+                ret.append(element_wise_product(a[d_],b[d_]))
     return ret

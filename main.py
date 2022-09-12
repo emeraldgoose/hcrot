@@ -12,7 +12,8 @@ class Model(object):
         self.linear2 = layers.Linear(in_features=hidden, out_features=hidden)
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         self.sigmoid = layers.Sigmoid()
-        self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc]
+        self.relu = layers.ReLU()
+        self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc, self.relu]
         
     def forward(self, x):
         for module in self.sequential:
