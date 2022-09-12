@@ -19,7 +19,7 @@ class MaxPool2d:
         batch, channel, hin, win = len(x), len(x[0]), len(x[0][0]), len(x[0][0][0])
         hout = math.floor((hin - (self.kernel_size[0]-1) - 1) / self.stride[0] + 1)
         wout = math.floor((win - (self.kernel_size[1]-1) - 1) / self.stride[1] + 1)
-        ret = np.zeros((batch, channel, hout, wout))
+        ret = zeros((batch, channel, hout, wout))
         for b in range(batch):
             b_ = []
             for c in range(channel):
@@ -44,7 +44,7 @@ class MaxPool2d:
         return max_value, mm, nn
 
     def backward(self, dout):
-        dx = np.zeros(self.input_shape)
+        dx = zeros(self.input_shape)
         for b in range(len(dout)):
             for c in range(len(dout[0])):
                 flat_dout = flatten(dout[b][c])[0]
