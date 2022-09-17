@@ -7,11 +7,11 @@ class Conv2d:
         # default group = 1, dilation = 1
         if type(kernel) == tuple:
             sqrt_k = math.sqrt(1/(in_channel*sum(kernel)))
-            self.weight = random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel[0], kernel[1]))
+            self.weight = init_weight(sqrt_k,(out_channel, in_channel, kernel[0], kernel[1]))
         else:
             sqrt_k = math.sqrt(1/(in_channel*kernel*2))
-            self.weight = random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel, kernel))
-        self.bias = random.uniform(-sqrt_k, sqrt_k, out_channel)
+            self.weight = init_weight(sqrt_k, (out_channel, in_channel, kernel, kernel))
+        self.bias = init_weight(sqrt_k, (out_channel,1))
 
         if type(stride) == int: self.stride = (stride, stride)
         else: self.stride = stride
@@ -36,20 +36,21 @@ class Conv2d:
                 ret[b][cout] += self.bias[cout]
         self.Z = ret
         return ret
-
+    
     def Pad(self, x, padding):
         # (C, H, W)
         B, C, H, W = len(x), len(x[0]), len(x[0][0]), len(x[0][0][0])
         ret = zeros((B,C,H+padding[0]*2,W+padding[1]*2))
         for b in range(B):
             for c in range(C):
-                ret[b][c] = np.pad(x[b][c],((padding[0],padding[0]),(padding[1],padding[1])))
-        return ret.tolist()
+                ret[b][c] = pad(x[b][c],((padding[0],padding[0]),(padding[1],padding[1])))
+        return ret
 
     def backward(self, dout):
         # dout.shape = self.Z.shape
         dw, db = zeros(shape(self.weight)), zeros(shape(self.bias))
         batch, out_channel, in_channel = len(dout), len(dout[0]), len(self.X[0])
+        hout, wout = len(dw[0][0]), len(dw[0][0][0])
         
         for b in range(batch):
             for cin in range(in_channel):
@@ -62,6 +63,8 @@ class Conv2d:
         dout = self.Pad(dout,(pad_h,pad_w))
         
         dz = zeros(shape(self.X))
+        hout, wout = len(dz[0][0]), len(dz[0][0][0])
+
         for b in range(batch):
             for cout in range(out_channel):
                 for cin in range(in_channel):
@@ -69,6 +72,8 @@ class Conv2d:
                     dz[b][cin] += convolve2d(dout[b][cin], flip_w)
 
         # remove pad
-        dz = np.array(dz)
-        dz = dz[:,:,pad_h:-pad_h,pad_w:-pad_w].tolist()
+        B,C,_,_ = shape(dz)
+        for b in range(B):
+            for c in range(C):
+                dz[b][c] = remove_pad(dz[b][c],(pad_h,pad_w))
         return dw, db, dz

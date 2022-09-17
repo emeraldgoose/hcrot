@@ -99,3 +99,49 @@ def init_weight(k, size):
         for _ in range(size[0]):
             ret.append(init_weight(k,size[1:]))
     return ret
+
+def pad(data, padding):
+    # ((top, bottom), (left, right))
+    if len(shape(data)) != 2:
+        raise "Not Image"
+    if isinstance(padding[0],tuple):
+        pad_t, pad_b = padding[0]
+    else:
+        pad_t, pad_b = padding[0], padding[0]
+
+    if isinstance(padding[1],tuple):
+        pad_l, pad_r = padding[1]
+    else:
+        pad_l, pad_r = padding[1], padding[1]
+    
+    original_shape = shape(data)
+    x_, y_ = original_shape
+    new_shape = (x_+pad_t+pad_b,y_+pad_l+pad_r)
+    ret = zeros(new_shape)
+    for i in range(x_):
+        for j in range(y_):
+            ret[i+pad_t][j+pad_l] = data[i][j]
+    return ret
+
+def remove_pad(data, padding):
+    if len(shape(data)) != 2:
+        raise "Not Image"
+    if isinstance(padding[0],tuple):
+        pad_t, pad_b = padding[0]
+    else:
+        pad_t, pad_b = padding[0], padding[0]
+
+    if isinstance(padding[1],tuple):
+        pad_l, pad_r = padding[1]
+    else:
+        pad_l, pad_r = padding[1], padding[1]
+    
+    padded_shape = shape(data)
+    x, y = padded_shape
+    new_shape = (x-pad_t-pad_b,y-pad_l-pad_r)
+    x_, y_ = new_shape
+    ret = zeros(new_shape)
+    for i in range(x_):
+        for j in range(y_):
+            ret[i][j] = data[i+pad_t][j+pad_l]
+    return ret
