@@ -50,7 +50,7 @@ def softmax_(x):
     sum_ = [sum(exp**i for i in x[j]) for j in range(len(x))]
     return [[exp**i/(sum_[j]+delta) for i in x[j]] for j in range(len(x))]
 
-def convolve2d_(a, f):
+def convolve2d(a, f):
     # Ref: https://stackoverflow.com/a/43087771
     import numpy as np
     a = np.array(a)
@@ -89,4 +89,13 @@ def element_wise_product(a, b):
         else:
             for d_ in range(s_[0]):
                 ret.append(element_wise_product(a[d_],b[d_]))
+    return ret
+
+def init_weight(k, size):
+    ret = []
+    if len(size) == 1:
+        ret = [random.uniform(-k,k) for _ in range(size[0])]
+    else:
+        for _ in range(size[0]):
+            ret.append(init_weight(k,size[1:]))
     return ret

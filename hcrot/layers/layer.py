@@ -4,8 +4,8 @@ import numpy as np
 class Linear:
     def __init__(self, in_features, out_features):
         squared_k = math.sqrt(1/in_features)
-        self.weight = [[random.uniform(-squared_k,squared_k) for _ in range(out_features)] for _ in range(in_features)]
-        self.bias = [[random.uniform(-squared_k,squared_k) for _ in range(out_features)]]
+        self.weight_ = init_weight(squared_k, (in_features, out_features))
+        self.bias_ = init_weight(squared_k, (1, out_features))
         self.X, self.Z = None, None # dz/dw = x, dz/db = 1, self.X = input, self.Z = output
 
     def __call__(self, inputs):
