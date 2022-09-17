@@ -50,7 +50,6 @@ class Conv2d:
         # dout.shape = self.Z.shape
         dw, db = zeros(shape(self.weight)), zeros(shape(self.bias))
         batch, out_channel, in_channel = len(dout), len(dout[0]), len(self.X[0])
-        hout, wout = len(dw[0][0]), len(dw[0][0][0])
         
         for b in range(batch):
             for cin in range(in_channel):
@@ -63,7 +62,6 @@ class Conv2d:
         dout = self.Pad(dout,(pad_h,pad_w))
         
         dz = zeros(shape(self.X))
-        hout, wout = len(dz[0][0]), len(dz[0][0][0])
 
         for b in range(batch):
             for cout in range(out_channel):
