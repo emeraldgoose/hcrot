@@ -66,7 +66,7 @@ class Conv2d:
         for b in range(batch):
             for cout in range(out_channel):
                 for cin in range(in_channel):
-                    flip_w = np.flip(self.weight[cout][cin])
+                    flip_w = flip(self.weight[cout][cin])
                     dz[b][cin] += convolve2d(dout[b][cin], flip_w)
 
         # remove pad

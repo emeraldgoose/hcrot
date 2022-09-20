@@ -145,3 +145,7 @@ def remove_pad(data, padding):
         for j in range(y_):
             ret[i][j] = data[i+pad_t][j+pad_l]
     return ret
+
+def flip(kernel):
+    kernel = list(reversed(kernel))
+    return [list(reversed(e)) for e in kernel]
