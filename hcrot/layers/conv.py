@@ -39,7 +39,7 @@ class Conv2d:
     
     def Pad(self, x, padding):
         # (C, H, W)
-        B, C, H, W = len(x), len(x[0]), len(x[0][0]), len(x[0][0][0])
+        B, C, H, W = shape(x)
         ret = zeros((B,C,H+padding[0]*2,W+padding[1]*2))
         for b in range(B):
             for c in range(C):
