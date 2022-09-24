@@ -55,7 +55,16 @@ class Conv2d:
             for cin in range(in_channel):
                 for cout in range(out_channel):
                     dw[cout][cin] += convolve2d(self.X[b][cin],dout[b][cout])
-            for cout in range(out_channel): db[cout] += np.sum(dout[b][cout])
+            for cout in range(out_channel):
+                db[cout][0] = sum([sum([x for x in dout[b][cout][h]]) for h in range(len(dout[b][cout]))])
+
+        # mean
+        for b in range(batch):
+            for cin in range(in_channel):
+                for cout in range(out_channel):
+                    dw[cout][cin] = [[dw_/batch for dw_ in dw[cout][cin][h]] for h in range(len(dw[cout][cin]))]
+            for cout in range(out_channel):
+                db[cout][0] /= batch
 
         # dz need 0-pad (1,1), dx = convolution(dz, weight)
         pad_h, pad_w = len(self.weight[0][0])-1, len(self.weight[0][0][0])-1
