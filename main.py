@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 import argparse
-from hcrot import layers, dataset, optim, utils
 from tqdm.auto import tqdm
+
+from hcrot import layers, dataset, optim, utils
 
 class Model(object):
     def __init__(self, input_len=28*28, hidden=512, num_classes=10):
@@ -11,8 +12,8 @@ class Model(object):
         self.linear2 = layers.Linear(in_features=hidden, out_features=hidden)
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         self.sigmoid = layers.Sigmoid()
-        self.softmax = layers.Softmax()
-        self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc, self.softmax]
+        self.relu = layers.ReLU()
+        self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc, self.relu]
         
     def forward(self, x):
         for module in self.sequential:
@@ -31,7 +32,7 @@ def train(args):
         for i,(x,y) in enumerate(tqdm(dataloader)):
             pred = model.forward(x)
             loss = loss_fn(pred,y)
-            dz = loss_fn.backward(pred)
+            dz = loss_fn.backward(pred, y)
             optimizer.update(dz)
             loss_ += loss
         
