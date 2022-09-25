@@ -10,6 +10,9 @@
 /datasets 안에 mnist.csv 파일을 학습하는 예졔 코드입니다.  
 `python main.py --lr_rate 1e-2 --hidden_size 10 --epochs 10`
 
+CNN 예제 코드입니다.  
+`python cnn.py --lr_rate 1e-1 --epochs 10`
+
 ## 현재 문제점
 Softmax와 Sigmoid는 e^i처럼 제곱형태로 계산하는 과정이 있습니다. 학습 과정 중에 입력되는 값이 갑자기 커지게 되면 오버플로우가 발생할 수 있습니다.  
 - `Overflow (34, Numerical result out of range)`
