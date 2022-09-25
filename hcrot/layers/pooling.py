@@ -1,5 +1,4 @@
 from hcrot.utils import *
-import numpy as np
 
 class MaxPool2d:
     def __init__(self, kernel_size, stride=None):
@@ -16,7 +15,7 @@ class MaxPool2d:
     
     def __call__(self, x):
         self.input_shape = shape(x)
-        batch, channel, hin, win = len(x), len(x[0]), len(x[0][0]), len(x[0][0][0])
+        batch, channel, hin, win = self.input_shape
         hout = math.floor((hin - (self.kernel_size[0]-1) - 1) / self.stride[0] + 1)
         wout = math.floor((win - (self.kernel_size[1]-1) - 1) / self.stride[1] + 1)
         ret = zeros((batch, channel, hout, wout))

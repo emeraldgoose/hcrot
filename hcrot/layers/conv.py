@@ -83,4 +83,5 @@ class Conv2d:
         for b in range(B):
             for c in range(C):
                 dz[b][c] = remove_pad(dz[b][c],(pad_h,pad_w))
+        
         return dw, db, dz

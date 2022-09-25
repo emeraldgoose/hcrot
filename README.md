@@ -15,4 +15,5 @@ Softmax와 Sigmoid는 e^i처럼 제곱형태로 계산하는 과정이 있습니
 - `Overflow (34, Numerical result out of range)`
 
 ## Post
-[https://emeraldgoose.github.io/pytorch/dl-implement/](https://emeraldgoose.github.io/pytorch/dl-implement/)
+- MLP : [https://emeraldgoose.github.io/pytorch/dl-implement/](https://emeraldgoose.github.io/pytorch/dl-implement/)
+- CNN : [https://emeraldgoose.github.io/pytorch/cnn-implementation/](https://emeraldgoose.github.io/pytorch/cnn-implementation/)

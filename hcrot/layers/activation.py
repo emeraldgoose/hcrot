@@ -22,8 +22,7 @@ class Sigmoid:
 
 class ReLU:
     def __call__(self, inputs):
-        self.mask = zeros(shape(inputs))
-        self.mask = self._masking(self.mask, inputs)
+        self.mask = self._masking(zeros(shape(inputs)), inputs)
         return element_wise_product(self.mask, inputs)
     
     def _masking(self, mask, inputs):
@@ -31,10 +30,10 @@ class ReLU:
         if isinstance(mask, list):
             s_ = shape(mask)
             if len(s_) == 1:
-                ret = [1 if i_>0 else 0 for _, i_ in zip(self.mask, inputs)]
+                ret = [1 if i_>0 else 0 for i_ in inputs]
             else:
                 for d_ in range(s_[0]):
-                    ret.append(self._masking(mask[d_],inputs[d_]))
+                    ret.append(self._masking(mask[d_], inputs[d_]))
         return ret
     
     def backward(self, inputs):

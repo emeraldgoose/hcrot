@@ -4,8 +4,8 @@ import numpy as np
 class Linear:
     def __init__(self, in_features, out_features):
         squared_k = math.sqrt(1/in_features)
-        self.weight_ = init_weight(squared_k, (in_features, out_features))
-        self.bias_ = init_weight(squared_k, (1, out_features))
+        self.weight = init_weight(squared_k, (in_features, out_features))
+        self.bias = init_weight(squared_k, (1, out_features))
         self.X, self.Z = None, None # dz/dw = x, dz/db = 1, self.X = input, self.Z = output
 
     def __call__(self, inputs):
@@ -31,14 +31,14 @@ class Flatten:
         self.ori_shape = size_
         if self.end_dim == -1: self.end_dim = len(size_)-1
         if self.start_dim == self.end_dim: return x
-        return np.array(self.flatten_(x,0,self.start_dim,self.end_dim)).astype(np.float32)
+        return np.array(self.flatten_(x,0,self.start_dim,self.end_dim)).astype(np.float32).tolist()
         
     def flatten_(self, x, dim, sdim, edim):
         if sdim <= dim < edim:
             ret = []
             for i in range(len(x)):
                 ret += self.flatten_(x[i],dim+1,sdim,edim)
-        elif dim == edim: return x.tolist()
+        elif dim == edim: return x
         else:
             ret = []
             for i in range(len(x)):
@@ -46,5 +46,6 @@ class Flatten:
         return ret
 
     def backward(self, dout):
+        # idea...
         dout = np.array(dout)
         return np.reshape(dout,self.ori_shape).tolist()

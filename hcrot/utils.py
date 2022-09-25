@@ -13,8 +13,8 @@ def dot(x, y):
     return ret
 
 def dot_numpy(x, y):
-    x2 = np.array(x, dtype=np.float32)
-    y2 = np.array(y, dtype=np.float32)
+    x2 = np.array(x).astype(np.float32)
+    y2 = np.array(y).astype(np.float32)
     return np.dot(x2,y2).tolist()
 
 def plus(x, y):
@@ -31,9 +31,8 @@ def flatten(x):
     return [[x[i][j] for i in range(len(x)) for j in range(len(x[0]))]]
 
 def argmax(inputs):
-    # 2 dim
-    max_ = [max(li) for li in inputs]
-    return [inputs[i].index(max_[i]) for i in range(len(inputs))]
+  max_ = [max(li) for li in inputs]
+  return [inputs[i].index(max_[i]) for i in range(len(inputs))]
 
 def one_hot_encoding(x, y):
     one_hot_enc = [[0 for _ in range(len(x[0]))] for _ in range(len(x))]
@@ -52,16 +51,14 @@ def softmax_(x):
 
 def convolve2d(a, f):
     # Ref: https://stackoverflow.com/a/43087771
-    import numpy as np
-    a = np.array(a)
-    f = np.array(f)
+    a,f = np.array(a), np.array(f)
     s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
     strd = np.lib.stride_tricks.as_strided
     subM = strd(a, shape = s, strides = a.strides * 2)
     return np.einsum('ij,ijkl->kl', f, subM)
 
 def weight_update(weight, grad, lr_rate):
-    assert shape(weight) == shape(grad)
+    assert shape(weight) == shape(grad), "must same shape weight, grad"
     ret = []
     if isinstance(weight, list):
         w_shape = shape(weight)
@@ -73,11 +70,12 @@ def weight_update(weight, grad, lr_rate):
     return ret
 
 def zeros(size):
-    if len(size)==1:
+    ret = []
+    if len(size) == 1:
         ret = [0 for _ in range(size[0])]
     else:
-        tmp = zeros(size[1:])
-        ret = [tmp for _ in range(size[0])]
+        for _ in range(size[0]):
+            ret.append(zeros(size[1:]))
     return ret
 
 def element_wise_product(a, b):
