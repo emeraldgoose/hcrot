@@ -147,3 +147,21 @@ def remove_pad(data, padding):
 def flip(kernel):
     kernel = list(reversed(kernel))
     return [list(reversed(e)) for e in kernel]
+
+def flatten_(x):
+    while shape(x)[0] > 1:
+        x = flatten(x)
+    return x[0]
+
+def reshape(a,s):
+    def _reshape(a, s):
+        ret = []
+        if len(s) > 1:
+            lim = len(a)//s[0]
+            for i in range(0,len(a),lim):
+                ret.append(_reshape(a[i:i+lim],s[1:]))
+        else: ret = a
+        return ret
+    flatted = flatten_(a)
+    return _reshape(flatted,s)
+    

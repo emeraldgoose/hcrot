@@ -33,19 +33,15 @@ class Flatten:
         if self.start_dim == self.end_dim: return x
         return np.array(self.flatten_(x,0,self.start_dim,self.end_dim)).astype(np.float32).tolist()
         
-    def flatten_(self, x, dim, sdim, edim):
+    def _flatten(self, x, dim, sdim, edim):
         if sdim <= dim < edim:
             ret = []
             for i in range(len(x)):
-                ret += self.flatten_(x[i],dim+1,sdim,edim)
+                ret += self._flatten(x[i],dim+1,sdim,edim)
         elif dim == edim: return x
         else:
-            ret = []
-            for i in range(len(x)):
-                ret.append(self.flatten_(x[i],dim+1,sdim,edim))
+            ret = [self._flatten(x[i],dim+1,sdim,edim) for i in range(len(x))]
         return ret
 
     def backward(self, dout):
-        # idea...
-        dout = np.array(dout)
-        return np.reshape(dout,self.ori_shape).tolist()
+        return reshape(dout,self.ori_shape)
