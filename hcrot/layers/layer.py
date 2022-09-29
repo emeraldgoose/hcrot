@@ -31,7 +31,7 @@ class Flatten:
         self.ori_shape = size_
         if self.end_dim == -1: self.end_dim = len(size_)-1
         if self.start_dim == self.end_dim: return x
-        return np.array(self.flatten_(x,0,self.start_dim,self.end_dim)).astype(np.float32).tolist()
+        return self._flatten(x,0,self.start_dim,self.end_dim)
         
     def _flatten(self, x, dim, sdim, edim):
         if sdim <= dim < edim:
