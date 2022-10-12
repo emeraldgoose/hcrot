@@ -6,6 +6,12 @@
 - numpy는 dot product 구현에 사용했습니다. dot product를 3중 for문으로 구현하게 되면 너무 오래걸려 MNIST 1000개 학습에 6분 이상 걸리게 됩니다.
 - ~~Cross Entropy는 계산을 쉽게 하기 위해 numpy로 구현했지만 나중에 numpy 없이 구현할 생각입니다.~~
 
+## Requirements
+`tqdm`은 진행정도를 출력해주는 라이브러리입니다.  
+```
+pip install tqdm
+```
+
 ## Example code
 /datasets 안에 mnist.csv 파일을 학습하는 예졔 코드입니다.  
 `python main.py --lr_rate 1e-2 --hidden_size 10 --epochs 10`
