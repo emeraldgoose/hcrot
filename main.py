@@ -23,7 +23,7 @@ class Model(object):
 def train(args):
     model = Model(input_len=28*28,hidden=args.hidden_size,num_classes=10)
     loss_fn = layers.CrossEntropyLoss()
-    optimizer = optim.Optimizer(model,args.lr_rate)
+    optimizer = optim.Adam(model,args.lr_rate)
 
     for epoch in range(args.epochs):
         loss_, correct = 0, 0

@@ -22,7 +22,7 @@ class CNN(object):
 def train(args):
     model = CNN()
     loss_fn = layers.CrossEntropyLoss()
-    optimizer = optim.Optimizer(model,args.lr_rate)
+    optimizer = optim.Adam(model,args.lr_rate)
 
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
@@ -50,7 +50,7 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='hcrot example training code')
     parser.add_argument('--lr_rate', default=1e-1, type=float, help='Learning Rate')
-    parser.add_argument('--epochs', default=1, type=int, help='Epochs')
+    parser.add_argument('--epochs', default=3, type=int, help='Epochs')
 
     df = pd.read_csv('./datasets/mnist_test.csv')
     label = df['7'].to_numpy()
