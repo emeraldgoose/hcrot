@@ -43,7 +43,7 @@ class SGD(Optimizer):
         return super().update(dz)
 
     def weight_update(self, id, weight, grad, lr_rate):
-        self.v[f'{id}'] = self.v_update(self.v[f'{id}'], grad, lr_rate)
+        self.v[f'{id}'] = self._velocity_update(self.v[f'{id}'], grad, lr_rate)
         return self._weight_update(weight, self.v[f'{id}'])
 
     def _weight_update(self, weight, v):
@@ -57,7 +57,7 @@ class SGD(Optimizer):
                     ret.append(self._weight_update(weight[depth],v[depth]))
         return ret
     
-    def v_update(self, velocity, grad, lr_rate):
+    def _velocity_update(self, velocity, grad, lr_rate):
         ret = []
         if isinstance(velocity, list):
             v_shape = shape(velocity)
@@ -65,7 +65,7 @@ class SGD(Optimizer):
                 ret = [self.momentum * v_ - lr_rate * g_ for v_, g_ in zip(velocity, grad)]
             else:
                 for depth in range(v_shape[0]):
-                    ret.append(self.v_update(velocity[depth], grad[depth], lr_rate))
+                    ret.append(self._velocity_update(velocity[depth], grad[depth], lr_rate))
         return ret
 
     def _initialize(self, Net):
@@ -94,8 +94,8 @@ class Adam(Optimizer):
         return super().update(dz)
 
     def weight_update(self, id, weight, grad, lr_rate):
-        self.m[id] = self.m_update(self.m[id], grad)
-        self.v[id] = self.v_update(self.v[id], grad)
+        self.m[id] = self._moment_update(self.m[id], grad, 'm')
+        self.v[id] = self._moment_update(self.v[id], grad, 'v')
         m_hat = broadcast_divide(self.m[id], (1-self._pow(self.betas[0], self.t)))
         v_hat = broadcast_divide(self.v[id], (1-self._pow(self.betas[1], self.t)))
         return self._weight_update(weight, m_hat, v_hat, lr_rate)
@@ -111,26 +111,20 @@ class Adam(Optimizer):
                     ret.append(self._weight_update(weight[depth], m_hat[depth], v_hat[depth], lr_rate))
         return ret
 
-    def m_update(self, moment, grad):
+    def _moment_update(self, moment, grad, option):
         ret = []
         if isinstance(moment, list):
             v_shape = shape(moment)
             if len(v_shape) == 1:
-                ret = [self.betas[0]*m_ + (1-self.betas[0])*g_ for m_, g_ in zip(moment, grad)]
+                if option == 'm':
+                    ret = [self.betas[0]*m_ + (1-self.betas[0])*g_ for m_, g_ in zip(moment, grad)]
+                elif option == 'v':
+                    ret = [self.betas[1] * v_ + (1 - self.betas[1]) * (g_**2) for v_, g_ in zip(moment, grad)]
+                else:
+                    raise NotImplementedError
             else:
                 for depth in range(v_shape[0]):
-                    ret.append(self.m_update(moment[depth], grad[depth]))
-        return ret
-
-    def v_update(self, velocity, grad):
-        ret = []
-        if isinstance(velocity, list):
-            v_shape = shape(velocity)
-            if len(v_shape) == 1:
-                ret = [self.betas[1] * v_ + (1 - self.betas[1]) * (g_**2) for v_, g_ in zip(velocity, grad)]
-            else:
-                for depth in range(v_shape[0]):
-                    ret.append(self.v_update(velocity[depth], grad[depth]))
+                    ret.append(self._moment_update(moment[depth], grad[depth], option))
         return ret
 
     def _initialize(self, Net):
