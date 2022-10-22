@@ -57,18 +57,6 @@ def convolve2d(a, f):
     subM = strd(a, shape = s, strides = a.strides * 2)
     return np.einsum('ij,ijkl->kl', f, subM)
 
-def weight_update(weight, grad, lr_rate):
-    assert shape(weight) == shape(grad), "must same shape weight, grad"
-    ret = []
-    if isinstance(weight, list):
-        w_shape = shape(weight)
-        if len(w_shape) == 1:
-            ret = [w_ - (g_ * lr_rate) for w_, g_ in zip(weight, grad)]
-        else:
-            for depth in range(w_shape[0]):
-                ret.append(weight_update(weight[depth],grad[depth],lr_rate))
-    return ret
-
 def zeros(size):
     ret = []
     if len(size) == 1:
@@ -87,6 +75,17 @@ def element_wise_product(a, b):
         else:
             for d_ in range(s_[0]):
                 ret.append(element_wise_product(a[d_],b[d_]))
+    return ret
+
+def broadcast_divide(a, b) -> float:
+    ret = []
+    if isinstance(a, list):
+        s_ = shape(a)
+        if len(s_) == 1:
+            ret = [a_ / b for a_ in a]
+        else:
+            for d_ in range(s_[0]):
+                ret.append(broadcast_divide(a[d_],b))
     return ret
 
 def init_weight(k, size):
