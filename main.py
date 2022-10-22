@@ -13,7 +13,7 @@ class Model(object):
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         self.sigmoid = layers.Sigmoid()
         self.relu = layers.ReLU()
-        self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc, self.relu]
+        self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc]
         
     def forward(self, x):
         for module in self.sequential:
@@ -23,7 +23,7 @@ class Model(object):
 def train(args):
     model = Model(input_len=28*28,hidden=args.hidden_size,num_classes=10)
     loss_fn = layers.CrossEntropyLoss()
-    optimizer = optim.Optimizer(model,args.lr_rate)
+    optimizer = optim.Adam(model,args.lr_rate)
 
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
