@@ -1,9 +1,5 @@
 from tkinter import X
 from hcrot.utils import *
-import numpy as np
-import math
-exp = math.e
-# from utils import *
 
 class Softmax:
     def __call__(self, x: np.ndarray):
