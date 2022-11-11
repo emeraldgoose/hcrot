@@ -46,14 +46,6 @@ class SGD(Optimizer):
         self.v[f'{id}'] = self.momentum * self.v[f'{id}'] - lr_rate * grad
         return weight + self.v[f'{id}']
 
-    def _initialize(self, Net):
-        v_lists = ['Conv2d','Linear']
-        w = [(f'{id(module)}_weight', np.zeros_like(module.weight)) 
-            for module in Net.sequential if module.__class__.__name__ in v_lists]
-        b = [(f'{id(module)}_bias', np.zeros_like(module.bias)) 
-            for module in Net.sequential if module.__class__.__name__ in v_lists]
-        return dict(w+b)
-
 class Adam(Optimizer):
     def __init__(self, Net, lr_rate, betas=(0.9, 0.999), eps=1e-8):
         super().__init__(Net, lr_rate)
