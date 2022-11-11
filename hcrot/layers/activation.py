@@ -1,4 +1,3 @@
-from tkinter import X
 from hcrot.utils import *
 
 class Softmax:
