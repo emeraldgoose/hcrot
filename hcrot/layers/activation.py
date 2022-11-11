@@ -1,40 +1,34 @@
+from tkinter import X
 from hcrot.utils import *
+import numpy as np
+import math
+exp = math.e
+# from utils import *
 
 class Softmax:
-    def __call__(self, inputs):
-        # inputs = 2 dim
-        self.X = inputs
-        self.sum_ = [sum([exp**i for i in inputs[j]]) for j in range(len(inputs))]
-        return [[exp**i/self.sum_[j] for i in inputs[j]] for j in range(len(inputs))]
+    def __call__(self, x: np.ndarray):
+        self.X = x
+        self.sum_ = np.sum(np.exp(x),axis=1)
+        return softmax_(x)
     
-    def backward(self, inputs):
-        e_a = [[exp**self.X[i][j] for j in range(len(inputs[0]))] for i in range(len(inputs))]
-        return [[((1+inputs[i][j])/self.sum_[i])*e_a[i][j] for j in range(len(e_a[0]))] for i in range(len(e_a))]
+    def backward(self, dz: np.ndarray):
+        e = np.exp(self.X)
+        r = np.divide((1+dz).T,self.sum_).T
+        return r * e
 
 class Sigmoid:
-    def __call__(self, inputs):
-        ret = [[1/(1+(exp**(-x))) for x in inputs[i]] for i in range(len(inputs))]      
-        return ret
+    def __call__(self, x: np.ndarray):
+        return 1/(1+np.exp(-x))
 
-    def backward(self, inputs):
-        x = self(inputs)
-        return [[x[i][j]*(1-x[i][j]) for j in range(len(x[0]))] for i in range(len(x))]
+    def backward(self, dz: np.ndarray, Z: np.ndarray):
+        x = self(Z)
+        dsig = x*(1-x)
+        return dsig * dz
 
 class ReLU:
-    def __call__(self, inputs):
-        self.mask = self._masking(zeros(shape(inputs)), inputs)
-        return element_wise_product(self.mask, inputs)
+    def __call__(self, x: np.ndarray):
+        self.mask = x > 0
+        return self.mask * x
     
-    def _masking(self, mask, inputs):
-        ret = []
-        if isinstance(mask, list):
-            s_ = shape(mask)
-            if len(s_) == 1:
-                ret = [1 if i_>0 else 0 for i_ in inputs]
-            else:
-                for d_ in range(s_[0]):
-                    ret.append(self._masking(mask[d_], inputs[d_]))
-        return ret
-    
-    def backward(self, inputs):
-        return element_wise_product(self.mask, inputs)
+    def backward(self, dz):
+        return self.mask * dz

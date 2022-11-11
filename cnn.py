@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 from tqdm.auto import tqdm
 
-from hcrot import layers, dataset, optim, utils
+from hcrot import layers, dataset, optim
 
 class CNN(object):
     def __init__(self, num_classes=10):
@@ -21,36 +21,34 @@ class CNN(object):
 
 def train(args):
     model = CNN()
-    loss_fn = layers.CrossEntropyLoss()
+    criterion = layers.CrossEntropyLoss()
     optimizer = optim.Adam(model,args.lr_rate)
 
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
-
+        
         # train
         for i, (x,y) in enumerate(tqdm(dataloader)):
-            x = np.array(x).reshape(-1,1,28,28).tolist() # (B,H,W,C) -> (B,C,H,W)
+            x = np.array(x).reshape(-1,1,28,28) # (B,H,W,C) -> (B,C,H,W)
             pred = model.forward(x)
-            loss = loss_fn(pred,y)
-            dz = loss_fn.backward(pred,y)
+            loss = criterion(pred,y)
+            dz = criterion.backward()
             optimizer.update(dz)
             loss_ += loss
-            dz = np.array(dz)
-
+        
         # test
         for i, (x,y) in enumerate(tqdm(testloader)):
-            x = np.array(x).reshape(-1,1,28,28).tolist()
+            x = np.array(x).reshape(-1,1,28,28)
             pred = model.forward(x)
-            if type(pred) == np.ndarray: pred = pred.tolist()
-            correct += sum([(a==b) for a,b in zip(utils.argmax(pred),y)])
+            correct += np.sum(np.argmax(pred,axis=1)==y)
         
         print(f'epoch = [{epoch+1}] | loss = {loss_/len(dataloader)} | ACC = {correct/(len(testloader)*len(y))}')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='hcrot example training code')
-    parser.add_argument('--lr_rate', default=1e-1, type=float, help='Learning Rate')
-    parser.add_argument('--epochs', default=3, type=int, help='Epochs')
+    parser.add_argument('--lr_rate', default=1e-2, type=float, help='Learning Rate')
+    parser.add_argument('--epochs', default=1, type=int, help='Epochs')
 
     df = pd.read_csv('./datasets/mnist_test.csv')
     label = df['7'].to_numpy()

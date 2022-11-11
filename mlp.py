@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 from tqdm.auto import tqdm
 
-from hcrot import layers, dataset, optim, utils
+from hcrot import layers, dataset, optim
 
 class Model(object):
     def __init__(self, input_len=28*28, hidden=512, num_classes=10):
@@ -12,7 +12,6 @@ class Model(object):
         self.linear2 = layers.Linear(in_features=hidden, out_features=hidden)
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         self.sigmoid = layers.Sigmoid()
-        self.relu = layers.ReLU()
         self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc]
         
     def forward(self, x):
@@ -22,7 +21,7 @@ class Model(object):
 
 def train(args):
     model = Model(input_len=28*28,hidden=args.hidden_size,num_classes=10)
-    loss_fn = layers.CrossEntropyLoss()
+    criterion = layers.CrossEntropyLoss()
     optimizer = optim.Adam(model,args.lr_rate)
 
     for epoch in range(args.epochs):
@@ -31,20 +30,20 @@ def train(args):
         # train
         for i,(x,y) in enumerate(tqdm(dataloader)):
             pred = model.forward(x)
-            loss = loss_fn(pred,y)
-            dz = loss_fn.backward(pred, y)
+            loss = criterion(pred,y)
+            dz = criterion.backward()
             optimizer.update(dz)
             loss_ += loss
         
         # test
         for i, (x,y) in enumerate(tqdm(testloader)):
             pred = model.forward(x)
-            correct += sum([(a==b) for a,b in zip(utils.argmax(pred),y)]) 
+            correct += np.sum(np.argmax(pred,axis=1)==y)
 
         print(f'epoch = [{epoch+1}] | loss = {loss_/len(dataloader)} | ACC = {correct/(len(testloader)*len(y))}')
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='hcrot example training code')
+    parser = argparse.ArgumentParser()
     parser.add_argument('--lr_rate', default=1e-2, type=float, help='Learning Rate')
     parser.add_argument('--hidden_size', default=28, type=int, help='Hidden Layer size')
     parser.add_argument('--epochs', default=10, type=int, help='Epochs')
