@@ -25,5 +25,5 @@ class ReLU:
         self.mask = x > 0
         return self.mask * x
     
-    def backward(self, dz):
+    def backward(self, dz: np.ndarray):
         return self.mask * dz

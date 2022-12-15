@@ -21,7 +21,7 @@ class Conv2d:
         else: self.padding = padding
         self.X, self.Z = None, None
     
-    def __call__(self, x):
+    def __call__(self, x: np.ndarray):
         # original image shape (B, H, W, C) -> converted (B, C, H, W)
         self.X = x
         pad_x = self.Pad(x, self.padding)

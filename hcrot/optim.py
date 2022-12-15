@@ -1,12 +1,12 @@
-from typing import Any
+from typing import Any, Tuple
 from hcrot.utils import *
 
 class Optimizer:
-    def __init__(self, Net, lr_rate):
+    def __init__(self, Net: Any, lr_rate: float):
         self.modules = Net.sequential
         self.lr_rate = lr_rate
     
-    def update(self, dz):
+    def update(self, dz: np.ndarray):
         for i in range(len(self.modules)-1,-1,-1):
             module = self.modules[i]
             if module.__class__.__name__ == "Sigmoid":
@@ -25,7 +25,7 @@ class Optimizer:
     def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float):
         return weight - (lr_rate * grad)
     
-    def _initialize(self, Net):
+    def _initialize(self, Net: Any):
         v_lists = ['Conv2d','Linear']
         w = [(f'{id(module)}_weight', np.zeros_like(module.weight)) 
             for module in Net.sequential if module.__class__.__name__ in v_lists]
@@ -39,15 +39,15 @@ class SGD(Optimizer):
         self.momentum = momentum
         self.v = self._initialize(Net)
     
-    def update(self, dz):
+    def update(self, dz: np.ndarray):
         return super().update(dz)
 
-    def weight_update(self, id, weight, grad, lr_rate):
+    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float):
         self.v[f'{id}'] = self.momentum * self.v[f'{id}'] - lr_rate * grad
         return weight + self.v[f'{id}']
 
 class Adam(Optimizer):
-    def __init__(self, Net, lr_rate, betas=(0.9, 0.999), eps=1e-8):
+    def __init__(self, Net: Any, lr_rate: float, betas: Tuple[float, float] = (0.9, 0.999), eps: float = 1e-8):
         super().__init__(Net, lr_rate)
         self.betas = betas
         self.eps = eps
@@ -59,18 +59,18 @@ class Adam(Optimizer):
         }
         self.t = 0
     
-    def update(self, dz):
+    def update(self, dz: np.ndarray):
         self.t += 1
         return super().update(dz)
 
-    def weight_update(self, id, weight, grad, lr_rate):
+    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float):
         self.m[id] = self.betas[0] * self.m[id] + (1 - self.betas[0]) * grad
         self.v[id] = self.betas[1] * self.v[id] + (1 - self.betas[1]) * (grad ** 2)
         m_hat = self.m[id] / (1-self._pow(self.betas[0], self.t))
         v_hat = self.v[id] / (1-self._pow(self.betas[1], self.t))
         return weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
 
-    def _pow(self, beta, t):
+    def _pow(self, beta: float, t: int):
         if t in self.memo[beta].keys():
             return self.memo[beta][t]
         

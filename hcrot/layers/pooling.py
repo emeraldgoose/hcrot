@@ -49,8 +49,8 @@ class MaxPool2d:
         return dx
 
 class AvgPool2d:
-    def __call__(self, x):
+    def __call__(self, x: np.ndarray):
         return NotImplementedError
 
-    def backward(self, dout):
+    def backward(self, dout: np.ndarray):
         return NotImplementedError
