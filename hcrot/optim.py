@@ -23,11 +23,11 @@ class Optimizer:
             elif module.__class__.__name__ == "RNN":
                 dz, dw, db = module.backward(dz)
                 for k,v in dw.items():
-                    new_weight = self.weight_update(k, module.__getattribute__(k), v, self.lr_rate)
-                    module.__setattr__(k, new_weight)
+                    new_weight = self.weight_update(k, getattr(module, k), v, self.lr_rate)
+                    setattr(module, k, new_weight)
                 for k, v in db.items():
-                    new_bias = self.weight_update(k, module.__getattribute__(k), v, self.lr_rate)
-                    module.__setattr__(k, new_bias)
+                    new_bias = self.weight_update(k, getattr(module, k), v, self.lr_rate)
+                    setattr(module, k, new_bias)
             else:
                 dz = module.backward(dz)
     
