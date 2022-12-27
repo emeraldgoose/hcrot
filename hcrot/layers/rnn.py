@@ -15,7 +15,11 @@ class RNN:
         return self.forward(x, h0)
 
     def forward(self, x: np.ndarray, h0: np.ndarray = None):
-        """RNN forward process, (input_length or input_time_length, batch_size, input_features) = (L, B, F)"""
+        """
+            RNN forward process, (input_length or input_time_length, batch_size, input_features) = (L, B, F)
+            forward function:
+              - h_t = tanh(x_t @ W_{ih}.T + b_{ih} + h_{t-1} @ W_{hh}.T + b_{hh})
+        """
         if self.batch_first:
             x = np.transpose(x, (1,0,2))
         
