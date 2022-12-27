@@ -43,6 +43,9 @@ class RNN:
 
     def backward(self, dout: np.ndarray):
         """RNN backward process"""
+        if self.batch_first and len(dout.shape) == 3:
+            dout = np.transpose(dout, (1,0,2))
+        
         dw, db, dx = {}, {}, dout
         for l in reversed(range(self.num_layers)):
             dhnext = np.zeros(self.hs[l][0].shape) # (L, B, H)
