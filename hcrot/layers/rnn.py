@@ -2,13 +2,17 @@ import numpy as np
 
 class RNN:
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False):
+        assert nonlinearity in ['tanh', 'relu'], f'unknown nonlinearity {nonlinearity}'
         self.parameters = []
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.nonlinearity = nonlinearity
         self.batch_first = batch_first
-        self.X, self.hs, self.h0 = [], None, None
+        self.X = []
+        self.hs = None
+        self.h0 = None
+        self.relu_mask = []
         self._initialize()
 
     def __call__(self, x: np.ndarray, h0: np.ndarray = None):
@@ -16,14 +20,19 @@ class RNN:
 
     def forward(self, x: np.ndarray, h0: np.ndarray = None):
         """
-            RNN forward process, (input_length or input_time_length, batch_size, input_features) = (L, B, F)
-            forward function:
-              - h_t = tanh(x_t @ W_{ih}.T + b_{ih} + h_{t-1} @ W_{hh}.T + b_{hh})
+        RNN forward process
+        (input_length or input_time_length, batch_size, input_features) = (L, B, F)
+        forward function:
+            - h_t = tanh(x_t @ W_{ih}.T + b_{ih} + h_{t-1} @ W_{hh}.T + b_{hh})
+            - https://pytorch.org/docs/stable/generated/torch.nn.RNN.html#torch.nn.RNN
         """
         if self.batch_first:
             x = np.transpose(x, (1,0,2))
-        
         (L, B, _), H = x.shape, self.hidden_size
+
+        if self.nonlinearity == 'relu':
+            self.relu_mask = np.zeros((self.num_layers, L, B, H))
+        
         hn = np.zeros((self.num_layers, B, H)) if h0 == None else h0 # (num_layers, B, H)
         self.h0 = hn.copy() # deep copy
         self.hs = np.zeros((self.num_layers, L, B, H)) # (num_layers, L, B, H)
@@ -36,7 +45,11 @@ class RNN:
             bih, bhh = getattr(self, f'bias_ih_l{l}'), getattr(self, f'bias_hh_l{l}')
             for t in range(L):
                 hs_t = np.dot(x[t], wih.T) + bih + np.dot(h_t, whh.T) + bhh
-                h_t = self._tanh(hs_t) if self.nonlinearity == 'tanh' else self._relu(hs_t)
+                if self.nonlinearity == 'tanh':
+                    h_t = np.tanh(hs_t)
+                else:
+                    self.relu_mask[l][t] = hs_t > 0
+                    h_t = self.relu_mask[l][t] * hs_t
                 out[t] = h_t
                 self.hs[l][t] = h_t.copy()
             hn[l] = h_t
@@ -73,11 +86,14 @@ class RNN:
         dx = np.zeros_like(self.X[layer])
 
         for t in reversed(range(T)):
-            """rnn cell backward process, (batch_size, hidden_size, input_features) = (B, H, F)"""
+            """
+            rnn cell backward process
+            (batch_size, hidden_size, input_features) = (B, H, F)
+            """
             dhnext += dout[t] if len(dout.shape)==3 else (dout if t==T-1 else 0) # (B, H)
             h_next, h_prev = self.hs[layer][t], self.hs[layer][t-1] if t > 0 else self.h0[layer] # (B, H)
             xt = self.X[layer][t] # (B, F)
-            dhtanh: np.ndarray = (1 - h_next**2) * dhnext # (B, H)
+            dhtanh: np.ndarray = ((1 - h_next**2) if self.nonlinearity == 'tanh' else self.relu_mask[layer][t]) * dhnext # (B, H)
             dx[t] = np.dot(dhtanh, wih) # (B, F)
             dwih += np.dot(dhtanh.T, xt) # (H, F)
             dhnext = np.dot(dhtanh, whh) # (B, H)
@@ -102,9 +118,3 @@ class RNN:
             setattr(self, f'weight_ih_l{i}', weight)
             setattr(self, f'bias_ih_l{i}', bias)
             self.parameters += [f'weight_ih_l{i}', f'bias_ih_l{i}']
-
-    def _tanh(self, x: np.ndarray):
-        return np.tanh(x)
-    
-    def _relu(self, x: np.ndarray):
-        raise NotImplementedError
