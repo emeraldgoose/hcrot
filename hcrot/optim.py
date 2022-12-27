@@ -35,11 +35,17 @@ class Optimizer:
         return weight - (lr_rate * grad)
     
     def _initialize(self, Net: Any):
-        v_lists = ['Conv2d','Linear']
-        w = [(f'{id(module)}_weight', np.zeros_like(module.weight)) 
-            for module in Net.sequential if module.__class__.__name__ in v_lists]
-        b = [(f'{id(module)}_bias', np.zeros_like(module.bias)) 
-            for module in Net.sequential if module.__class__.__name__ in v_lists]
+        w, b = [], []
+        for module in Net.sequential:
+            if module.__class__.__name__ in ['Conv2d','Linear']:
+                w += [(f'{id(module)}_weight', np.zeros_like(module.weight))]
+                b += [(f'{id(module)}_bias', np.zeros_like(module.bias))]
+            elif module.__class__.__name__ == 'RNN':
+                for weight in module.parameters:
+                    if 'weight' in weight:
+                        w += [(weight, np.zeros_like(getattr(module, weight)))]
+                    elif 'bias' in weight:
+                        b += [(weight, np.zeros_like(getattr(module, weight)))]
         return dict(w+b)
 
 class SGD(Optimizer):
