@@ -13,6 +13,6 @@ class Dataloader:
         return len(self.idx) // self.batch_size
 
     def __getitem__(self, i: int):
-        images = [self.data[i*self.batch_size+j] for j in range(self.batch_size)]
-        labels = [self.label[i*self.batch_size+j] for j in range(self.batch_size)]
-        return np.array(images), np.array(labels)
+        data = [self.data[i * self.batch_size + j] for j in range(self.batch_size)]
+        labels = [self.label[i * self.batch_size + j] for j in range(self.batch_size)]
+        return np.array(data), np.array(labels)
