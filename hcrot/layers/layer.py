@@ -9,6 +9,9 @@ class Linear:
         self.Z: np.ndarray = None
 
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         self.X = x
         mat = np.dot(x, self.weight)
         self.Z = mat + self.bias
@@ -27,6 +30,9 @@ class Flatten:
         self.ori_shape = None
     
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         size_ = x.shape
         self.ori_shape = size_
         

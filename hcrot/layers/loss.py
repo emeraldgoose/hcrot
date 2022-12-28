@@ -2,6 +2,9 @@ from hcrot.utils import *
 
 class MSELoss:
     def __call__(self, y_pred: np.ndarray, y_true: np.ndarray):
+        return self.forward(y_pred, y_true)
+
+    def forward(self, y_pred: np.ndarray, y_true: np.ndarray):
         self.y_pred = y_pred
         B, _ = y_pred.shape
         self.enc = one_hot_encoding(y_pred, y_true)
@@ -14,6 +17,9 @@ class MSELoss:
 
 class CrossEntropyLoss:
     def __call__(self, y_pred: np.ndarray, y_true: np.ndarray):
+        return self.forward(y_pred, y_true)
+
+    def forward(self, y_pred: np.ndarray, y_true: np.ndarray):
         self.y_pred = y_pred
         self.y_true = y_true
         B, _ = y_pred.shape

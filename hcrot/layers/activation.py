@@ -2,6 +2,9 @@ from hcrot.utils import *
 
 class Softmax:
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         self.X = x
         self.sum_ = np.sum(np.exp(x),axis=1)
         return softmax_(x)
@@ -13,6 +16,9 @@ class Softmax:
 
 class Sigmoid:
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         return 1/(1+np.exp(-x))
 
     def backward(self, dz: np.ndarray, Z: np.ndarray):
@@ -22,6 +28,9 @@ class Sigmoid:
 
 class ReLU:
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         self.mask = x > 0
         return self.mask * x
     

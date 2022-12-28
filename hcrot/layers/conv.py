@@ -22,6 +22,9 @@ class Conv2d:
         self.X, self.Z = None, None
     
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         # original image shape (B, H, W, C) -> converted (B, C, H, W)
         self.X = x
         pad_x = self.Pad(x, self.padding)

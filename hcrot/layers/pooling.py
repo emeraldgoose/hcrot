@@ -18,6 +18,9 @@ class MaxPool2d:
             self.stride = stride
     
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         self.input_shape = x.shape
         batch, channel, hin, win = self.input_shape
         hout = np.floor((hin - (self.kernel_size[0]-1) - 1) / self.stride[0] + 1).astype(int)
@@ -50,6 +53,9 @@ class MaxPool2d:
 
 class AvgPool2d:
     def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
         return NotImplementedError
 
     def backward(self, dout: np.ndarray):
