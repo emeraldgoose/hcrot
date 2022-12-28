@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='hcrot example training code')
     parser.add_argument('--lr_rate', default=1e-3, type=float, help='Learning Rate')
     parser.add_argument('--epochs', default=10, type=int, help='Epochs')
-    parser.add_argument('--hidden_size', default=128, type=int, help='RNN hidden size')
+    parser.add_argument('--hidden_size', default=256, type=int, help='RNN hidden size')
 
     df = pd.read_csv('./datasets/mnist_test.csv')
     label = df['7'].to_numpy()
