@@ -6,7 +6,7 @@ def one_hot_encoding(x: np.ndarray, y: np.ndarray):
         ret[i][y_]=1
     return ret
 
-def softmax_(x):
+def softmax_(x: np.ndarray):
     sum_: np.ndarray = np.sum(np.exp(x),axis=1)
     sum_ += np.full(sum_.shape, 1e-7)
     return np.array(np.exp(x).T / sum_).T
