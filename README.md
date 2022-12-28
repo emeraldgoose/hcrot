@@ -17,7 +17,7 @@ python mlp.py --lr_rate 1e-2 --hidden_size 10 --epochs 10
 # CNN 코드
 python cnn.py --lr_rate 1e-1 --epochs 10
 # RNN 코드
-python rnn.py --lr_rate 1e-3 --hidden_size 128 --epochs 10
+python rnn.py --lr_rate 1e-3 --hidden_size 256 --epochs 10
 ```
 
 ## 문제점
