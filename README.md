@@ -27,3 +27,4 @@ Softmax와 Sigmoid는 e^i처럼 제곱형태로 계산하는 과정이 있습니
 ## Post
 - MLP : [https://emeraldgoose.github.io/pytorch/dl-implement/](https://emeraldgoose.github.io/pytorch/dl-implement/)
 - CNN : [https://emeraldgoose.github.io/pytorch/cnn-implementation/](https://emeraldgoose.github.io/pytorch/cnn-implementation/)
+- RNN : [https://emeraldgoose.github.io/pytorch/rnn-impl/](https://emeraldgoose.github.io/pytorch/rnn-impl/)
