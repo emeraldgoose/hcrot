@@ -13,7 +13,7 @@ class RNN:
         self.hs = None
         self.h0 = None
         self.relu_mask = []
-        self._initialize()
+        self.reset_parameters()
 
     def __call__(self, x: np.ndarray, h0: np.ndarray = None):
         return self.forward(x, h0)
@@ -103,7 +103,7 @@ class RNN:
         
         return dx, dwih, dwhh, dbih, dbhh
 
-    def _initialize(self):
+    def reset_parameters(self):
         k = np.sqrt(1/self.hidden_size)
         for i in range(self.num_layers):
             weight = np.random.uniform(-k, k, (self.hidden_size, self.hidden_size))
