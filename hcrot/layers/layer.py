@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 
 class Linear:
@@ -49,3 +50,23 @@ class Flatten:
 
     def backward(self, dout: np.ndarray):
         return np.reshape(dout, self.ori_shape)
+
+class Embedding:
+    def __init__(self, num_embeddings: int, embedding_dim: int, padding_idx: Optional[int] = None):
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.weight = np.random.normal(0, 1, (num_embeddings, embedding_dim))
+        if padding_idx:
+            self.weight[padding_idx].fill(0)
+        self.X = None
+
+    def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
+        self.X = x
+        return self.weight[x]
+
+    def backward(self, dout: np.ndarray):
+        dw = dout[self.X]
+        return dw
