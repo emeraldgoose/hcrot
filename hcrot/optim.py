@@ -28,6 +28,9 @@ class Optimizer:
                 for k, v in db.items():
                     new_bias = self.weight_update(k, getattr(module, k), v, self.lr_rate)
                     setattr(module, k, new_bias)
+            elif module.__class__.__name__ == "Embedding":
+                dw = module.backward(dz)
+                module.weight = self.weight_update(f'{id(module)}_weight', module.weight, dw, self.lr_rate)
             else:
                 dz = module.backward(dz)
     
