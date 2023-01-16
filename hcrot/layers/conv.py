@@ -7,19 +7,19 @@ class Conv2d:
         self.in_channel = in_channel
         self.out_channel = out_channel
         if type(kernel) == tuple:
-            sqrt_k = np.sqrt(1/(in_channel*sum(kernel)))
+            sqrt_k = np.sqrt(1 / (in_channel*sum(kernel)))
             self.weight = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel[0], kernel[1]))
         else:
-            sqrt_k = np.sqrt(1/(in_channel*kernel*2))
+            sqrt_k = np.sqrt(1 / (in_channel*kernel*2))
             self.weight = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel, kernel))
-        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (out_channel,1))
+        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, 1))
 
         if type(stride) == int: self.stride = (stride, stride)
         else: self.stride = stride
         
-        if type(padding) == int: self.padding = (padding,padding)
+        if type(padding) == int: self.padding = (padding, padding)
         else: self.padding = padding
-        self.X, self.Z = None, None
+        self.X = None
     
     def __call__(self, x: np.ndarray):
         return self.forward(x)
@@ -29,41 +29,40 @@ class Conv2d:
         self.X = x
         pad_x = self.Pad(x, self.padding)
         image, kernel, B = pad_x[0][0], self.weight[0][0], len(x)
-        hin, win = len(image), len(image[0])
+        hin, win = image.shape
         hout = np.floor((hin + 2 * self.padding[0] - 1 * (len(kernel)-1) - 1) / self.stride[0] + 1).astype(int)
         wout = np.floor((win + 2 * self.padding[1] - 1 * (len(kernel[0])-1) - 1) / self.stride[1] + 1).astype(int)
-        ret = np.zeros((B,self.out_channel,hout,wout))
+        ret = np.zeros((B, self.out_channel, hout, wout))
+        
         for b in range(B):
             for cout in range(self.out_channel):
                 for cin in range(self.in_channel):
-                    ret[b][cout] += convolve2d(pad_x[b][cin],self.weight[cout][cin])[::self.stride[0],::self.stride[1]]
+                    ret[b][cout] += convolve2d(pad_x[b][cin], self.weight[cout][cin])[::self.stride[0], ::self.stride[1]]
                 ret[b][cout] += self.bias[cout]
-        self.Z = ret
         return ret
     
     def Pad(self, x: np.ndarray, padding: tuple):
         B, C, H, W = x.shape
-        ret = np.zeros((B,C,H+padding[0]*2,W+padding[1]*2))
+        ret = np.zeros((B,C,H+padding[0]*2, W+padding[1]*2))
         for b in range(B):
             for c in range(C):
-                ret[b][c] = np.pad(x[b][c],((padding[0],padding[0]),(padding[1],padding[1])))
+                ret[b][c] = np.pad(x[b][c], ((padding[0], padding[0]), (padding[1], padding[1])))
         return ret
 
     def backward(self, dout: np.ndarray):
-        # dout.shape = self.Z.shape
         dw, db = np.zeros_like(self.weight), np.zeros_like(self.bias)
-        B, out_channel, in_channel = len(dout), len(dout[0]), len(self.X[0])
+        B, out_channel, in_channel = dout.shape[0], dout.shape[1], self.X.shape[1]
         
         for b in range(B):
             for cin in range(in_channel):
                 for cout in range(out_channel):
-                    dw[cout][cin] += convolve2d(self.X[b][cin],dout[b][cout])
+                    dw[cout][cin] += convolve2d(self.X[b][cin], dout[b][cout])
             for cout in range(out_channel):
-                db[cout][0] = sum([sum([x for x in dout[b][cout][h]]) for h in range(len(dout[b][cout]))])
+                db[cout][0] = np.sum(dout[b][cout], axis=None)
 
         # dz need 0-pad (1,1), dx = convolution(dz, weight)
-        pad_h, pad_w = len(self.weight[0][0])-1, len(self.weight[0][0][0])-1
-        dout = self.Pad(dout,(pad_h,pad_w))
+        pad_h, pad_w = self.weight.shape[2]-1, self.weight.shape[3]-1
+        dout = self.Pad(dout, (pad_h, pad_w))
         
         dz = np.zeros_like(self.X)
         for b in range(B):
@@ -75,4 +74,4 @@ class Conv2d:
         # remove pad
         dz = dz[:,:,pad_h:-pad_h,pad_w:-pad_w]
         
-        return dw/B, db/B, dz
+        return dw / B, db / B, dz

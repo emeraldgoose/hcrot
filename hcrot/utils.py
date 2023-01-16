@@ -2,11 +2,10 @@ import numpy as np
 
 def one_hot_encoding(x: np.ndarray, y: np.ndarray):
     ret = np.zeros_like(x)
-    for i, y_ in enumerate(y):
-        ret[i][y_]=1
+    ret[np.arange(y.size),y]=1
     return ret
 
-def softmax_(x: np.ndarray):
+def softmax(x: np.ndarray):
     sum_: np.ndarray = np.sum(np.exp(x),axis=1)
     sum_ += np.full(sum_.shape, 1e-7)
     return np.array(np.exp(x).T / sum_).T

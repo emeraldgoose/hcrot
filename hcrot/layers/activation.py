@@ -7,7 +7,7 @@ class Softmax:
     def forward(self, x: np.ndarray):
         self.X = x
         self.sum_ = np.sum(np.exp(x),axis=1)
-        return softmax_(x)
+        return softmax(x)
     
     def backward(self, dz: np.ndarray):
         e = np.exp(self.X)
