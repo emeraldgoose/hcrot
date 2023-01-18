@@ -8,8 +8,7 @@ class Optimizer:
         self.lr_rate = lr_rate
     
     def update(self, dz: np.ndarray):
-        for i in range(len(self.modules)-1,-1,-1):
-            module = self.modules[i]
+        for i, module in zip(reversed(range(len(self.modules))), reversed(self.modules)):
             if module.__class__.__name__ == "Sigmoid":
                 dz = module.backward(dz, self.modules[i-1].Z)
             elif module.__class__.__name__ == "Linear":
