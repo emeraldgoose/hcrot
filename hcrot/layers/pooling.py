@@ -1,8 +1,10 @@
+from .module import Module
 from typing import Union
 import numpy as np
 
-class MaxPool2d:
+class MaxPool2d(Module):
     def __init__(self, kernel_size: Union[int, tuple], stride: Union[int, tuple] = None):
+        super().__init__()
         self.gradient = []
         self.input_shape = None
         if type(kernel_size) == int:
@@ -50,6 +52,10 @@ class MaxPool2d:
         for (b,c,h,w),d_ in zip(self.gradient, dout.reshape(-1)):
             dx[b][c][h][w] = d_
         return dx
+
+    def extra_repr(self):
+        return 'kernel_size={}, stride={}'.format(self.kernel_size, self.stride)
+
 
 class AvgPool2d:
     def __call__(self, x: np.ndarray):

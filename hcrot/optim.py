@@ -11,12 +11,8 @@ class Optimizer:
         for i, module in zip(reversed(range(len(self.modules))), reversed(self.modules)):
             if module.__class__.__name__ == "Sigmoid":
                 dz = module.backward(dz, self.modules[i-1].Z)
-            elif module.__class__.__name__ == "Linear":
+            elif module.__class__.__name__ in ["Linear", "Conv2d"]:
                 dz, dw, db = module.backward(dz)
-                module.weight = self.weight_update(f'{id(module)}_weight', module.weight, dw, self.lr_rate)
-                module.bias = self.weight_update(f'{id(module)}_bias', module.bias, db, self.lr_rate)
-            elif module.__class__.__name__ == "Conv2d":
-                dw, db, dz = module.backward(dz)
                 module.weight = self.weight_update(f'{id(module)}_weight', module.weight, dw, self.lr_rate)
                 module.bias = self.weight_update(f'{id(module)}_bias', module.bias, db, self.lr_rate)
             elif module.__class__.__name__ == "RNN":

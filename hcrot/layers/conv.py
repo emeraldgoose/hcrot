@@ -1,15 +1,21 @@
 from typing import Union
+from .module import Module
 from hcrot.utils import *
 
-class Conv2d:
+class Conv2d(Module):
     def __init__(self, in_channel: int, out_channel: int, kernel: Union[int,tuple], stride: Union[int,tuple] = 1, padding: Union[int,tuple] = 0):
         # default group = 1, dilation = 1
+        super().__init__()
         self.in_channel = in_channel
         self.out_channel = out_channel
+        self.kernel_size = None
+        self.stride = None
         if type(kernel) == tuple:
+            self.kernel_size = kernel
             sqrt_k = np.sqrt(1 / (in_channel*sum(kernel)))
             self.weight = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel[0], kernel[1]))
         else:
+            self.kernel_size = (kernel, kernel)
             sqrt_k = np.sqrt(1 / (in_channel*kernel*2))
             self.weight = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel, kernel))
         self.bias = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, 1))
@@ -74,4 +80,10 @@ class Conv2d:
         # remove pad
         dz = dz[:,:,pad_h:-pad_h,pad_w:-pad_w]
         
-        return dw / B, db / B, dz
+        return dz, dw / B, db / B
+
+    def extra_repr(self):
+        s = '{}, {}, kernel_size={}, stride={}'.format(self.in_channel, self.out_channel, self.kernel_size, self.stride)
+        if self.padding:
+            s += ', padding={}'.format(self.padding)
+        return s

@@ -1,7 +1,9 @@
+from .module import Module
 import numpy as np
 
-class RNN:
+class RNN(Module):
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False):
+        super().__init__()
         assert nonlinearity in ['tanh', 'relu'], f'unknown nonlinearity {nonlinearity}'
         self.parameters = []
         self.input_size = input_size
@@ -128,3 +130,11 @@ class RNN:
             setattr(self, f'weight_ih_l{i}', weight)
             setattr(self, f'bias_ih_l{i}', bias)
             self.parameters += [f'weight_ih_l{i}', f'bias_ih_l{i}']
+
+    def extra_repr(self):
+        s = '{}, {}'.format(self.input_size, self.hidden_size)
+        if self.num_layers != 1:
+            s += ', num_layers={}'.format(self.num_layers)
+        if self.batch_first is not False:
+            s += ', batch_first={}'.format(self.batch_first)
+        return s

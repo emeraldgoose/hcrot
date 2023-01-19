@@ -5,14 +5,13 @@ from tqdm.auto import tqdm
 
 from hcrot import layers, dataset, optim
 
-class Model(object):
+class Model(layers.Module):
     def __init__(self, input_len=28*28, hidden=512, num_classes=10):
         super().__init__()
         self.linear = layers.Linear(in_features=input_len, out_features=hidden)
         self.linear2 = layers.Linear(in_features=hidden, out_features=hidden)
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         self.sigmoid = layers.Sigmoid()
-        self.sequential = [self.linear, self.sigmoid, self.linear2, self.sigmoid, self.fc]
         
     def forward(self, x):
         for module in self.sequential:

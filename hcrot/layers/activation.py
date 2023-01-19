@@ -1,6 +1,7 @@
+from .module import Module
 from hcrot.utils import *
 
-class Softmax:
+class Softmax(Module):
     def __call__(self, x: np.ndarray):
         return self.forward(x)
 
@@ -14,7 +15,7 @@ class Softmax:
         r = np.divide((1+dz).T,self.sum_).T
         return r * e
 
-class Sigmoid:
+class Sigmoid(Module):
     def __call__(self, x: np.ndarray):
         return self.forward(x)
 
@@ -26,7 +27,7 @@ class Sigmoid:
         dsig = x*(1-x)
         return dsig * dz
 
-class ReLU:
+class ReLU(Module):
     def __call__(self, x: np.ndarray):
         return self.forward(x)
 

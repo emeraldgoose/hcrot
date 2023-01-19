@@ -5,14 +5,13 @@ from tqdm.auto import tqdm
 
 from hcrot import layers, dataset, optim
 
-class CNN(object):
+class CNN(layers.Module):
     def __init__(self, num_classes=10):
         super().__init__()
-        self.layer1 = [layers.Conv2d(1,5,5), layers.ReLU(), layers.MaxPool2d(2,2)]
-        self.layer2 = [layers.Conv2d(5,7,5), layers.ReLU(), layers.MaxPool2d(2,2)]
+        self.layer1 = layers.Sequential(layers.Conv2d(1,5,5), layers.ReLU(), layers.MaxPool2d(2,2))
+        self.layer2 = layers.Sequential(layers.Conv2d(5,7,5), layers.ReLU(), layers.MaxPool2d(2,2))
         self.flatten = layers.Flatten()
         self.fc = layers.Linear(112, num_classes)
-        self.sequential = self.layer1 + self.layer2 + [self.flatten, self.fc]
 
     def forward(self, x):
         for module in self.sequential:
@@ -23,7 +22,6 @@ def train(args):
     model = CNN()
     criterion = layers.CrossEntropyLoss()
     optimizer = optim.Adam(model,args.lr_rate)
-
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
         
@@ -48,7 +46,7 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='hcrot example training code')
     parser.add_argument('--lr_rate', default=1e-2, type=float, help='Learning Rate')
-    parser.add_argument('--epochs', default=1, type=int, help='Epochs')
+    parser.add_argument('--epochs', default=10, type=int, help='Epochs')
 
     df = pd.read_csv('./datasets/mnist_test.csv')
     label = df['7'].to_numpy()
