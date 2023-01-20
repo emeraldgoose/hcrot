@@ -40,6 +40,7 @@ class RNN(Module):
         self.h0 = hn.copy() # deep copy
         self.hs = np.zeros((self.num_layers, L, B, H)) # (num_layers, L, B, H)
         out = np.zeros((L, B, H)) # (L, B, H)
+        self.X = []
         
         for l in range(self.num_layers):
             x = x if l == 0 else out # (L, B, F)
