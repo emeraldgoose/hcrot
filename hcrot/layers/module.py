@@ -20,10 +20,14 @@ class Module:
         self._modules[name] = module
 
     def train(self):
-        raise NotImplementedError
+        self.training = True
+        for module in self.sequential:
+            module.train()
 
     def eval(self):
-        raise NotImplementedError
+        self.training = False
+        for module in self.sequential:
+            module.eval()
 
     def _get_name(self):
         return self.__class__.__name__
