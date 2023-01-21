@@ -5,7 +5,7 @@ class RNN(Module):
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False):
         super().__init__()
         assert nonlinearity in ['tanh', 'relu'], f'unknown nonlinearity {nonlinearity}'
-        self.parameters = []
+        self.param_names = []
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -123,14 +123,14 @@ class RNN(Module):
             bias = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size,))
             setattr(self, f'weight_hh_l{i}', weight)
             setattr(self, f'bias_hh_l{i}', bias)
-            self.parameters += [f'weight_hh_l{i}', f'bias_hh_l{i}']
+            self.param_names += [f'weight_hh_l{i}', f'bias_hh_l{i}']
         
         for i in range(self.num_layers):
             weight = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size, self.input_size) if i==0 else (self.hidden_size, self.hidden_size))
             bias = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size,))
             setattr(self, f'weight_ih_l{i}', weight)
             setattr(self, f'bias_ih_l{i}', bias)
-            self.parameters += [f'weight_ih_l{i}', f'bias_ih_l{i}']
+            self.param_names += [f'weight_ih_l{i}', f'bias_ih_l{i}']
 
     def extra_repr(self):
         s = '{}, {}'.format(self.input_size, self.hidden_size)

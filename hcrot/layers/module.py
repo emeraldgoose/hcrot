@@ -3,6 +3,7 @@ from collections import OrderedDict
 class Module:
     def __init__(self):
         self._modules = OrderedDict()
+        self.parameters = OrderedDict()
         self.sequential = []
         self.training = True
 
@@ -12,12 +13,25 @@ class Module:
             self._modules[name] = value
             if value._get_name() != 'Sequential':
                 self.sequential.append(value)
+                self.add_parameters(value)
             else:
                 for module in value:
+                    self.add_parameters(module)
                     self.sequential.append(module)
 
     def add_module(self, name, module):
         self._modules[name] = module
+
+    def add_parameters(self, module):
+        if module._get_name() == 'RNN':
+            for param in module.param_names:
+                self.parameters[f'{id(module)}.{param}'] = getattr(module, param)
+        else:
+            if hasattr(module, 'weight'):
+                self.parameters[f'{id(module)}.weight'] = getattr(module, 'weight')
+            
+            if hasattr(module, 'bias'):
+                self.parameters[f'{id(module)}.bias'] = getattr(module, 'bias')
 
     def train(self):
         self.training = True
