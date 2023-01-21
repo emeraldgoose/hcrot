@@ -77,10 +77,10 @@ class RNN(Module):
         for l in reversed(range(self.num_layers)):
             dhnext = np.zeros(self.hs[l][0].shape) # (L, B, H)
             dx, dwih, dwhh, dbih, dbhh = self._layer_backward(l, dhnext, dx)
-            dw[f'weight_ih_l{l}']=dwih
-            dw[f'weight_hh_l{l}']=dwhh
-            db[f'bias_ih_l{l}']=dbih
-            db[f'bias_hh_l{l}']=dbhh
+            dw[f'weight_ih_l{l}'] = dwih
+            dw[f'weight_hh_l{l}'] = dwhh
+            db[f'bias_ih_l{l}'] = dbih
+            db[f'bias_hh_l{l}'] = dbhh
         
         if self.batch_first:
             dx = np.transpose(dx, (1,0,2))
@@ -102,11 +102,11 @@ class RNN(Module):
             rnn cell backward process
             (batch_size, hidden_size, input_features) = (B, H, F)
             """
-            dhnext += dout[t] if len(dout.shape)==3 else (dout if t==T-1 else 0) # (B, H)
+            dhnext += dout[t] if len(dout.shape) == 3 else (dout if t == T - 1 else 0) # (B, H)
             h_next, h_prev = self.hs[layer][t], self.hs[layer][t-1] if t > 0 else self.h0[layer] # (B, H)
             xt = self.X[layer][t] # (B, F)
             
-            dhtanh: np.ndarray = ((1 - h_next**2) if self.nonlinearity == 'tanh' else self.relu_mask[layer][t]) * dhnext # (B, H)
+            dhtanh: np.ndarray = ((1 - h_next ** 2) if self.nonlinearity == 'tanh' else self.relu_mask[layer][t]) * dhnext # (B, H)
             dx[t] = np.dot(dhtanh, wih) # (B, F)
             dwih += np.dot(dhtanh.T, xt) # (H, F)
             dwhh += np.dot(dhtanh.T, h_prev) # (H, H)
@@ -117,7 +117,7 @@ class RNN(Module):
         return dx, dwih, dwhh, dbih, dbhh
 
     def reset_parameters(self):
-        sqrt_k = np.sqrt(1/self.hidden_size)
+        sqrt_k = np.sqrt(1 / self.hidden_size)
         for i in range(self.num_layers):
             weight = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size, self.hidden_size))
             bias = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size,))
@@ -126,7 +126,7 @@ class RNN(Module):
             self.param_names += [f'weight_hh_l{i}', f'bias_hh_l{i}']
         
         for i in range(self.num_layers):
-            weight = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size, self.input_size) if i==0 else (self.hidden_size, self.hidden_size))
+            weight = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size, self.input_size) if i == 0 else (self.hidden_size, self.hidden_size))
             bias = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size,))
             setattr(self, f'weight_ih_l{i}', weight)
             setattr(self, f'bias_ih_l{i}', bias)

@@ -1,4 +1,7 @@
+from typing import Union, TypeVar
 from collections import OrderedDict
+
+T = TypeVar("T", bound="Module")
 
 class Module:
     def __init__(self):
@@ -7,7 +10,7 @@ class Module:
         self.sequential = []
         self.training = True
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Union[str, int, T]):
         super().__setattr__(name, value)
         if isinstance(value, Module):
             self._modules[name] = value
@@ -19,10 +22,10 @@ class Module:
                     self.add_parameters(module)
                     self.sequential.append(module)
 
-    def add_module(self, name, module):
+    def add_module(self, name: str, module: T):
         self._modules[name] = module
 
-    def add_parameters(self, module):
+    def add_parameters(self, module: T):
         if module._get_name() == 'RNN':
             for param in module.param_names:
                 self.parameters[f'{id(module)}.{param}'] = getattr(module, param)
@@ -79,5 +82,5 @@ class Sequential(Module):
         for i, module in enumerate(args):
             self.add_module(str(i), module)
     
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         return self.args[idx]
