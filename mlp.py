@@ -8,10 +8,15 @@ from hcrot import layers, dataset, optim
 class Model(layers.Module):
     def __init__(self, input_len=28*28, hidden=512, num_classes=10):
         super().__init__()
-        self.linear = layers.Linear(in_features=input_len, out_features=hidden)
-        self.linear2 = layers.Linear(in_features=hidden, out_features=hidden)
+        self.net1 = layers.Sequential(
+            layers.Linear(in_features=input_len, out_features=hidden),
+            layers.Sigmoid()
+        )
+        self.net2 = layers.Sequential(
+            layers.Linear(in_features=hidden, out_features=hidden),
+            layers.Sigmoid()
+        )
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
-        self.sigmoid = layers.Sigmoid()
         
     def forward(self, x):
         for module in self.sequential:

@@ -20,12 +20,12 @@ class Sigmoid(Module):
         return self.forward(x)
 
     def forward(self, x: np.ndarray):
+        self.X = x
         return 1/(1+np.exp(-x))
 
-    def backward(self, dz: np.ndarray, Z: np.ndarray):
-        x = self(Z)
-        dsig = x*(1-x)
-        return dsig * dz
+    def backward(self, dz: np.ndarray):
+        x = self.forward(self.X)
+        return x * (1 - x) * dz
 
 class ReLU(Module):
     def __call__(self, x: np.ndarray):
