@@ -11,6 +11,7 @@ class CNN(layers.Module):
         self.layer1 = layers.Sequential(layers.Conv2d(1,5,5), layers.ReLU(), layers.MaxPool2d(2,2))
         self.layer2 = layers.Sequential(layers.Conv2d(5,7,5), layers.ReLU(), layers.MaxPool2d(2,2))
         self.flatten = layers.Flatten()
+        self.dropout2 = layers.Dropout(p=0.5)
         self.fc = layers.Linear(112, num_classes)
 
     def forward(self, x):
@@ -26,6 +27,7 @@ def train(args):
         loss_, correct = 0, 0
         
         # train
+        model.train()
         for i, (x,y) in enumerate(tqdm(dataloader)):
             x = np.array(x).reshape(-1,1,28,28) # (B,H,W,C) -> (B,C,H,W)
             pred = model.forward(x)
@@ -35,6 +37,7 @@ def train(args):
             loss_ += loss
         
         # test
+        model.eval()
         for i, (x,y) in enumerate(tqdm(testloader)):
             x = np.array(x).reshape(-1,1,28,28)
             pred = model.forward(x)

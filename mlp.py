@@ -12,6 +12,7 @@ class Model(layers.Module):
             layers.Linear(in_features=input_len, out_features=hidden),
             layers.Sigmoid()
         )
+        self.dropout = layers.Dropout(p=0.3)
         self.net2 = layers.Sequential(
             layers.Linear(in_features=hidden, out_features=hidden),
             layers.Sigmoid()
@@ -32,6 +33,7 @@ def train(args):
         loss_, correct = 0, 0
         
         # train
+        model.train()
         for i,(x,y) in enumerate(tqdm(dataloader)):
             pred = model.forward(x)
             loss = criterion(pred,y)
@@ -40,6 +42,7 @@ def train(args):
             loss_ += loss
         
         # test
+        model.eval()
         for i, (x,y) in enumerate(tqdm(testloader)):
             pred = model.forward(x)
             correct += np.sum(np.argmax(pred,axis=1)==y)

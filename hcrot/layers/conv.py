@@ -77,9 +77,6 @@ class Conv2d(Module):
                     flip_w = np.flip(self.weight[cout][cin])
                     dz[b][cin] += convolve2d(dout[b][cin], flip_w)
         
-        # remove pad
-        dz = dz[:,:,pad_h:-pad_h,pad_w:-pad_w]
-        
         return dz, dw / B, db / B
 
     def extra_repr(self):

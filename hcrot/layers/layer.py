@@ -93,3 +93,22 @@ class Embedding:
         if self.padding_idx is not None:
             s += ', padding_idx={}'.format(self.padding_idx)
         return s
+
+class Dropout(Module):
+    def __init__(self, p: float = 0.5):
+        super().__init__()
+        self.p = p
+        if p < 0 or p > 1:
+            raise ValueError('p is between 0 and 1')
+
+    def __call__(self, x: np.ndarray):
+        return self.forward(x)
+
+    def forward(self, x: np.ndarray):
+        self.mask = np.random.random_sample((x.shape)) >= self.p
+        if self.training:
+            return x * self.mask
+        return x
+
+    def backward(self, dz: np.ndarray):
+        return dz * self.mask
