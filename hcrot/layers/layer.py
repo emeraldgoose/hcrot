@@ -105,10 +105,15 @@ class Dropout(Module):
         return self.forward(x)
 
     def forward(self, x: np.ndarray):
-        self.mask = np.random.random_sample((x.shape)) >= self.p
+        """
+        Pytorch Docs.
+          - the outputs are scaled by a factor 1 / (1 - p) during training.
+            This means that during evalution the module simply computes an identify function.
+        """
+        self.mask = np.ones(x.shape)
         if self.training:
-            return x * self.mask
-        return x
+            self.mask = np.random.uniform(0, 1, x.shape) > self.p
+        return x * self.mask / (1 - self.p)
 
     def backward(self, dz: np.ndarray):
-        return dz * self.mask
+        return dz * self.mask * (1 - self.p)
