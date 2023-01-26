@@ -106,7 +106,7 @@ class Dropout(Module):
 
     def forward(self, x: np.ndarray):
         """
-        Pytorch Docs.
+        In Pytorch Docs
           - the outputs are scaled by a factor 1 / (1 - p) during training.
             This means that during evalution the module simply computes an identify function.
         """
