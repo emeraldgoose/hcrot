@@ -4,7 +4,8 @@ import numpy as np
 class RNN(Module):
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False):
         super().__init__()
-        assert nonlinearity in ['tanh', 'relu'], f'unknown nonlinearity {nonlinearity}'
+        if nonlinearity not in ['tanh', 'relu']:
+            raise ValueError(f'unknown nonlinearity {nonlinearity}')
         self.param_names = []
         self.input_size = input_size
         self.hidden_size = hidden_size
