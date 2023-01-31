@@ -65,7 +65,6 @@ class Flatten(Module):
             self.start_dim, self.end_dim
         )
 
-
 class Embedding(Module):
     def __init__(self, num_embeddings: int, embedding_dim: int, padding_idx: Optional[int] = None):
         super().__init__()

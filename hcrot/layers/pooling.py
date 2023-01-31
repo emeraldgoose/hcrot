@@ -56,7 +56,6 @@ class MaxPool2d(Module):
     def extra_repr(self):
         return 'kernel_size={}, stride={}'.format(self.kernel_size, self.stride)
 
-
 class AvgPool2d:
     def __call__(self, x: np.ndarray):
         return self.forward(x)

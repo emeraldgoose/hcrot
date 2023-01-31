@@ -36,7 +36,6 @@ class Optimizer:
         weights = {key : np.zeros_like(param) for key, param in Net.parameters.items()}
         return weights
 
-
 class SGD(Optimizer):
     """Stochastic Gradient Descent"""
     def __init__(self, Net: Module, lr_rate: float, momentum: float = 0.9):
