@@ -56,12 +56,15 @@ class MaxPool2d(Module):
     def extra_repr(self):
         return 'kernel_size={}, stride={}'.format(self.kernel_size, self.stride)
 
-class AvgPool2d:
+class AvgPool2d(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
     def __call__(self, x: np.ndarray):
         return self.forward(x)
 
     def forward(self, x: np.ndarray):
-        return NotImplementedError
+        raise NotImplementedError
 
     def backward(self, dout: np.ndarray):
-        return NotImplementedError
+        raise NotImplementedError

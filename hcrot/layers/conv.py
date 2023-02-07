@@ -8,25 +8,27 @@ class Conv2d(Module):
         super().__init__()
         self.in_channel = in_channel
         self.out_channel = out_channel
-        self.kernel_size = None
-        self.stride = None
-        if type(kernel) == tuple:
-            self.kernel_size = kernel
-            sqrt_k = np.sqrt(1 / (in_channel*sum(kernel)))
-            self.weight = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel[0], kernel[1]))
-        else:
-            self.kernel_size = (kernel, kernel)
-            sqrt_k = np.sqrt(1 / (in_channel*kernel*2))
-            self.weight = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, in_channel, kernel, kernel))
-        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (out_channel, 1))
-
-        if type(stride) == int: self.stride = (stride, stride)
-        else: self.stride = stride
         
-        if type(padding) == int: self.padding = (padding, padding)
-        else: self.padding = padding
+        self.kernel_size = kernel
+        if isinstance(kernel, int):
+            self.kernel_size = (kernel, kernel)
+
+        self.stride = stride
+        if isinstance(stride, int):
+            self.stride = (stride, stride)
+        
+        self.padding = padding
+        if isinstance(padding, int):
+            self.padding = (padding, padding)
+        
+        self.reset_parameters()
         self.X = None
-    
+
+    def reset_parameters(self):
+        sqrt_k = np.sqrt(1 / (self.in_channel * sum(self.kernel_size)))
+        self.weight = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size))
+        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1))
+
     def __call__(self, x: np.ndarray):
         return self.forward(x)
 
