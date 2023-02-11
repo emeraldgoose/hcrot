@@ -7,11 +7,14 @@ class Linear(Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        sqrt_k = np.sqrt(1/in_features)
-        self.weight = np.random.uniform(-sqrt_k, sqrt_k, (in_features, out_features))
-        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (1, out_features))
         self.X = None
         self.Z = None
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        sqrt_k = np.sqrt(1 / self.in_features)
+        self.weight = np.random.uniform(-sqrt_k, sqrt_k, (self.in_features, self.out_features))
+        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (1, self.out_features))
 
     def __call__(self, x: np.ndarray):
         return self.forward(x)
@@ -71,10 +74,13 @@ class Embedding(Module):
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.padding_idx = padding_idx
-        self.weight = np.random.normal(0, 1, (num_embeddings, embedding_dim))
-        if padding_idx:
-            self.weight[padding_idx].fill(0)
         self.X = None
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.weight = np.random.normal(0, 1, (self.num_embeddings, self.embedding_dim))
+        if self.padding_idx is not None:
+            self.weight[self.padding_idx].fill(0)
 
     def __call__(self, x: np.ndarray):
         return self.forward(x)

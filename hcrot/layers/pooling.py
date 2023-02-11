@@ -7,17 +7,16 @@ class MaxPool2d(Module):
         super().__init__()
         self.gradient = []
         self.input_shape = None
-        if type(kernel_size) == int:
-            self.kernel_size = (kernel_size, kernel_size)
-        else:
-            self.kernel_size = kernel_size
         
-        if type(stride) == int:
-            self.stride = (stride, stride)
-        elif stride == None:
+        self.kernel_size = kernel_size
+        if isinstance(kernel_size, int):
+            self.kernel_size = (kernel_size, kernel_size)
+        
+        self.stride = stride
+        if self.stride == None:
             self.stride = (self.kernel_size[0], self.kernel_size[1])
-        else:
-            self.stride = stride
+        elif isinstance(stride, int):
+            self.stride = (stride, stride)
     
     def __call__(self, x: np.ndarray):
         return self.forward(x)
