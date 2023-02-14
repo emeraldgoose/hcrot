@@ -8,7 +8,6 @@ class Linear(Module):
         self.in_features = in_features
         self.out_features = out_features
         self.X = None
-        self.Z = None
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -22,8 +21,7 @@ class Linear(Module):
     def forward(self, x: np.ndarray):
         self.X = x
         mat = np.dot(x, self.weight)
-        self.Z = mat + self.bias
-        return self.Z
+        return mat + self.bias
 
     def backward(self, dz: np.ndarray):
         dw = np.dot(self.X.T, dz)
