@@ -69,12 +69,12 @@ class RNN(Module):
         
         return out, hn
 
-    def backward(self, dout: np.ndarray):
+    def backward(self, dz: np.ndarray):
         """RNN backward process"""
-        if self.batch_first and len(dout.shape) == 3:
-            dout = np.transpose(dout, (1,0,2))
+        if self.batch_first and len(dz.shape) == 3:
+            dz = np.transpose(dz, (1,0,2))
         
-        dw, db, dx = {}, {}, dout
+        dw, db, dx = {}, {}, dz
         for l in reversed(range(self.num_layers)):
             dhnext = np.zeros(self.hs[l][0].shape) # (L, B, H)
             dx, dwih, dwhh, dbih, dbhh = self._layer_backward(l, dhnext, dx)
@@ -88,7 +88,7 @@ class RNN(Module):
         
         return dx, dw, db
 
-    def _layer_backward(self, layer: int, dhnext: np.ndarray, dout: np.ndarray):
+    def _layer_backward(self, layer: int, dhnext: np.ndarray, dz: np.ndarray):
         """RNN layer backward process"""
         T = len(self.X[layer])
         wih, whh = getattr(self, f'weight_ih_l{layer}'), getattr(self, f'weight_hh_l{layer}')
@@ -103,7 +103,7 @@ class RNN(Module):
             rnn cell backward process
             (batch_size, hidden_size, input_features) = (B, H, F)
             """
-            dhnext += dout[t] if len(dout.shape) == 3 else (dout if t == T - 1 else 0) # (B, H)
+            dhnext += dz[t] if len(dz.shape) == 3 else (dz if t == T - 1 else 0) # (B, H)
             h_next, h_prev = self.hs[layer][t], self.hs[layer][t-1] if t > 0 else self.h0[layer] # (B, H)
             xt = self.X[layer][t] # (B, F)
             

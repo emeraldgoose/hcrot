@@ -40,15 +40,15 @@ class MaxPool2d(Module):
         mm, nn = -1, -1
         for m in range(self.kernel_size[0]):
             for n in range(self.kernel_size[1]):
-                v = x[self.stride[0]*h+m][self.stride[1]*w+n]
+                v = x[self.stride[0] * h + m][self.stride[1] * w + n]
                 if v > max_value:
                     max_value = v
-                    mm, nn = self.stride[0]*h+m, self.stride[1]*w+n
+                    mm, nn = self.stride[0] * h + m, self.stride[1] * w + n
         return max_value, mm, nn
 
-    def backward(self, dout: np.ndarray):
+    def backward(self, dz: np.ndarray):
         dx = np.zeros(self.input_shape)
-        for (b,c,h,w),d_ in zip(self.gradient, dout.reshape(-1)):
+        for (b,c,h,w),d_ in zip(self.gradient, dz.reshape(-1)):
             dx[b][c][h][w] = d_
         return dx
 
@@ -65,5 +65,5 @@ class AvgPool2d(Module):
     def forward(self, x: np.ndarray):
         raise NotImplementedError
 
-    def backward(self, dout: np.ndarray):
+    def backward(self, dz: np.ndarray):
         raise NotImplementedError

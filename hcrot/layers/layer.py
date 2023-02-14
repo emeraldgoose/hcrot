@@ -25,9 +25,9 @@ class Linear(Module):
 
     def backward(self, dz: np.ndarray):
         dw = np.dot(self.X.T, dz)
-        db = np.sum(dz,axis=0) / len(dz)
-        dz = np.dot(dz, self.weight.T)
-        return dz, dw, db
+        db = np.sum(dz, axis=0) / len(dz)
+        dx = np.dot(dz, self.weight.T)
+        return dx, dw, db
 
     def extra_repr(self):
         return 'in_features={}, out_features={}, bias=True'.format(
@@ -58,8 +58,8 @@ class Flatten(Module):
         new_size = shape[:self.start_dim] + [np.product(shape[self.start_dim:self.end_dim+1])] + shape[self.end_dim+1:]
         return np.reshape(x, new_size)
 
-    def backward(self, dout: np.ndarray):
-        return np.reshape(dout, self.origin_shape)
+    def backward(self, dz: np.ndarray):
+        return np.reshape(dz, self.origin_shape)
 
     def extra_repr(self):
         return 'start_dim={}, end_dim={}'.format(
@@ -87,8 +87,8 @@ class Embedding(Module):
         self.X = x
         return self.weight[x]
 
-    def backward(self, dout: np.ndarray):
-        dw = dout[self.X]
+    def backward(self, dz: np.ndarray):
+        dw = dz[self.X]
         return dw
 
     def extra_repr(self):

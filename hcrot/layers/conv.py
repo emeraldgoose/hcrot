@@ -57,27 +57,27 @@ class Conv2d(Module):
                 ret[b][c] = np.pad(x[b][c], ((padding[0], padding[0]), (padding[1], padding[1])))
         return ret
 
-    def backward(self, dout: np.ndarray):
+    def backward(self, dz: np.ndarray):
         dw, db = np.zeros_like(self.weight), np.zeros_like(self.bias)
-        B, out_channel, in_channel = dout.shape[0], dout.shape[1], self.X.shape[1]
+        B, out_channel, in_channel = dz.shape[0], dz.shape[1], self.X.shape[1]
         
         for b in range(B):
             for cin in range(in_channel):
                 for cout in range(out_channel):
-                    dw[cout][cin] += convolve2d(self.X[b][cin], dout[b][cout])
+                    dw[cout][cin] += convolve2d(self.X[b][cin], dz[b][cout])
             for cout in range(out_channel):
-                db[cout][0] = np.sum(dout[b][cout], axis=None)
+                db[cout][0] = np.sum(dz[b][cout], axis=None)
 
         # dz need 0-pad (1,1), dx = convolution(dz, weight)
         pad_h, pad_w = self.weight.shape[2]-1, self.weight.shape[3]-1
-        dout = self.Pad(dout, (pad_h, pad_w))
+        dz = self.Pad(dz, (pad_h, pad_w))
         
         dz = np.zeros_like(self.X)
         for b in range(B):
             for cout in range(out_channel):
                 for cin in range(in_channel):
                     flip_w = np.flip(self.weight[cout][cin])
-                    dz[b][cin] += convolve2d(dout[b][cin], flip_w)
+                    dz[b][cin] += convolve2d(dz[b][cin], flip_w)
         
         return dz, dw / B, db / B
 
