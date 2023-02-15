@@ -6,14 +6,16 @@ class Softmax(Module):
         return self.forward(x)
 
     def forward(self, x: np.ndarray):
+        if x.ndim >= 3:
+            raise ValueError('not possible backward() for dimension >= 3')
         self.X = x
         self.sum_ = np.sum(np.exp(x),axis=1)
         return softmax(x)
     
     def backward(self, dz: np.ndarray):
-        e = np.exp(self.X)
-        r = np.divide((1+dz).T,self.sum_).T
-        return r * e
+        s = softmax(self.X)
+        j = np.einsum('ij,jk->ijk', s, np.eye(s.shape[-1])) - np.einsum('ij,ik->ijk', s, s)
+        return np.einsum('ijk,ij->ik', j, dz)
 
 class Sigmoid(Module):
     def __call__(self, x: np.ndarray):
