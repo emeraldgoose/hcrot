@@ -1,7 +1,7 @@
 # hcrot
 > 딥러닝을 Python으로 구현하는 레포지토리 입니다.
 
-- 최대한 Pytorch와 비슷하게 구현하려고 했습니다.
+- 최대한 Pytorch와 비슷하게 구현하려고 했습니다. Tensor 대신에 Numpy 클래스를 사용합니다.
 
 ## Requirements
 `tqdm`은 진행정도를 출력해주는 라이브러리입니다.  
