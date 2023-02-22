@@ -8,8 +8,16 @@ from hcrot import layers, dataset, optim
 class CNN(layers.Module):
     def __init__(self, num_classes=10):
         super().__init__()
-        self.layer1 = layers.Sequential(layers.Conv2d(1,5,5), layers.ReLU(), layers.MaxPool2d(2,2))
-        self.layer2 = layers.Sequential(layers.Conv2d(5,7,5), layers.ReLU(), layers.MaxPool2d(2,2))
+        self.layer1 = layers.Sequential(
+            layers.Conv2d(1,5,5), 
+            layers.ReLU(), 
+            layers.MaxPool2d(2,2)
+            )
+        self.layer2 = layers.Sequential(
+            layers.Conv2d(5,7,5), 
+            layers.ReLU(), 
+            layers.MaxPool2d(2,2)
+            )
         self.flatten = layers.Flatten()
         self.dropout2 = layers.Dropout(p=0.5)
         self.fc = layers.Linear(112, num_classes)

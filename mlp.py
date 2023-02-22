@@ -11,12 +11,12 @@ class Model(layers.Module):
         self.net1 = layers.Sequential(
             layers.Linear(in_features=input_len, out_features=hidden),
             layers.Sigmoid()
-        )
+            )
         self.dropout = layers.Dropout(p=0.3)
         self.net2 = layers.Sequential(
             layers.Linear(in_features=hidden, out_features=hidden),
             layers.Sigmoid()
-        )
+            )
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         
     def forward(self, x):

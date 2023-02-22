@@ -8,7 +8,13 @@ from hcrot import layers, dataset, optim
 class RNN(layers.Module):
     def __init__(self, hidden_size):
         super().__init__()
-        self.rnn = layers.RNN(input_size=28,hidden_size=hidden_size,num_layers=2,nonlinearity='tanh',batch_first=False)
+        self.rnn = layers.RNN(
+            input_size=28,
+            hidden_size=hidden_size,
+            num_layers=2,
+            nonlinearity='tanh',
+            batch_first=False
+            )
         self.fc = layers.Linear(hidden_size, 10)
     
     def forward(self, x):
