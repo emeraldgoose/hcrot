@@ -72,14 +72,14 @@ class Conv2d(Module):
         pad_h, pad_w = self.weight.shape[2]-1, self.weight.shape[3]-1
         dz = self.Pad(dz, (pad_h, pad_w))
         
-        dz = np.zeros_like(self.X)
+        dz_ = np.zeros_like(self.X)
         for b in range(B):
             for cout in range(out_channel):
                 for cin in range(in_channel):
                     flip_w = np.flip(self.weight[cout][cin])
-                    dz[b][cin] += convolve2d(dz[b][cin], flip_w)
+                    dz_[b][cin] += convolve2d(dz[b][cin], flip_w)
         
-        return dz, dw / B, db / B
+        return dz_, dw / B, db / B
 
     def extra_repr(self):
         s = '{}, {}, kernel_size={}, stride={}'.format(self.in_channel, self.out_channel, self.kernel_size, self.stride)
