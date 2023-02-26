@@ -101,6 +101,7 @@ class Dropout(Module):
     def __init__(self, p: float = 0.5):
         super().__init__()
         self.p = p
+        self.scale_factor = 1 - p
         if p < 0 or p > 1:
             raise ValueError('p is between 0 and 1')
 
@@ -113,10 +114,11 @@ class Dropout(Module):
           - the outputs are scaled by a factor 1 / (1 - p) during training.
             This means that during evalution the module simply computes an identify function.
         """
-        self.mask = np.ones(x.shape)
-        if self.training:
-            self.mask = np.random.uniform(0, 1, x.shape) > self.p
-        return x * self.mask / (1 - self.p)
+        if not self.training:
+            return x
+
+        self.mask = np.random.uniform(0, 1, x.shape) > self.p
+        return x * self.mask / self.scale_factor
 
     def backward(self, dz: np.ndarray):
-        return dz * self.mask * (1 - self.p)
+        return dz * self.mask * self.scale_factor
