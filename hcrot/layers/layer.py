@@ -121,4 +121,4 @@ class Dropout(Module):
         return x * self.mask / self.scale_factor
 
     def backward(self, dz: np.ndarray):
-        return dz * self.mask * self.scale_factor
+        return dz * self.mask / self.scale_factor
