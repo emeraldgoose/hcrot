@@ -1,8 +1,9 @@
 from .module import Module
+from typing import Tuple
 import numpy as np
 
 class RNN(Module):
-    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False):
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False) -> None:
         super().__init__()
         if nonlinearity not in ['tanh', 'relu']:
             raise ValueError(f'unknown nonlinearity {nonlinearity}')
@@ -18,10 +19,10 @@ class RNN(Module):
         self.relu_mask = []
         self.reset_parameters()
 
-    def __call__(self, x: np.ndarray, h0: np.ndarray = None):
+    def __call__(self, x: np.ndarray, h0: np.ndarray = None) -> np.ndarray:
         return self.forward(x, h0)
 
-    def forward(self, x: np.ndarray, h0: np.ndarray = None):
+    def forward(self, x: np.ndarray, h0: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         RNN forward process
         (input_length or input_time_length, batch_size, input_features) = (L, B, F)
@@ -69,7 +70,7 @@ class RNN(Module):
         
         return out, hn
 
-    def backward(self, dz: np.ndarray):
+    def backward(self, dz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """RNN backward process"""
         if self.batch_first and len(dz.shape) == 3:
             dz = np.transpose(dz, (1,0,2))
@@ -88,7 +89,7 @@ class RNN(Module):
         
         return dx, dw, db
 
-    def _layer_backward(self, layer: int, dhnext: np.ndarray, dz: np.ndarray):
+    def _layer_backward(self, layer: int, dhnext: np.ndarray, dz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """RNN layer backward process"""
         T = len(self.X[layer])
         wih, whh = getattr(self, f'weight_ih_l{layer}'), getattr(self, f'weight_hh_l{layer}')
@@ -117,7 +118,7 @@ class RNN(Module):
         
         return dx, dwih, dwhh, dbih, dbhh
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         sqrt_k = np.sqrt(1 / self.hidden_size)
         for i in range(self.num_layers):
             weight = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size, self.hidden_size))
@@ -133,7 +134,7 @@ class RNN(Module):
             setattr(self, f'bias_ih_l{i}', bias)
             self.param_names += [f'weight_ih_l{i}', f'bias_ih_l{i}']
 
-    def extra_repr(self):
+    def extra_repr(self) -> str:
         s = '{}, {}'.format(self.input_size, self.hidden_size)
         if self.num_layers != 1:
             s += ', num_layers={}'.format(self.num_layers)

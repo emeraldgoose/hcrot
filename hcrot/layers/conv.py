@@ -1,9 +1,9 @@
-from typing import Union
+from typing import Union, Tuple
 from .module import Module
 from hcrot.utils import *
 
 class Conv2d(Module):
-    def __init__(self, in_channel: int, out_channel: int, kernel: Union[int,tuple], stride: Union[int,tuple] = 1, padding: Union[int,tuple] = 0):
+    def __init__(self, in_channel: int, out_channel: int, kernel: Union[int,tuple], stride: Union[int,tuple] = 1, padding: Union[int,tuple] = 0) -> None:
         # default group = 1, dilation = 1
         super().__init__()
         self.in_channel = in_channel
@@ -24,15 +24,15 @@ class Conv2d(Module):
         self.reset_parameters()
         self.X = None
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         sqrt_k = np.sqrt(1 / (self.in_channel * sum(self.kernel_size)))
         self.weight = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size))
         self.bias = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1))
 
-    def __call__(self, x: np.ndarray):
+    def __call__(self, x: np.ndarray) -> np.ndarray:
         return self.forward(x)
 
-    def forward(self, x: np.ndarray):
+    def forward(self, x: np.ndarray) -> np.ndarray:
         # original image shape (B, H, W, C) -> converted (B, C, H, W)
         self.X = x
         pad_x = self.Pad(x, self.padding)
@@ -49,7 +49,7 @@ class Conv2d(Module):
                 ret[b][cout] += self.bias[cout]
         return ret
     
-    def Pad(self, x: np.ndarray, padding: tuple):
+    def Pad(self, x: np.ndarray, padding: tuple) -> np.ndarray:
         B, C, H, W = x.shape
         ret = np.zeros((B,C,H+padding[0]*2, W+padding[1]*2))
         for b in range(B):
@@ -57,7 +57,7 @@ class Conv2d(Module):
                 ret[b][c] = np.pad(x[b][c], ((padding[0], padding[0]), (padding[1], padding[1])))
         return ret
 
-    def backward(self, dz: np.ndarray):
+    def backward(self, dz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         dw, db = np.zeros_like(self.weight), np.zeros_like(self.bias)
         B, out_channel, in_channel = dz.shape[0], dz.shape[1], self.X.shape[1]
         
@@ -81,7 +81,7 @@ class Conv2d(Module):
         
         return dz_, dw / B, db / B
 
-    def extra_repr(self):
+    def extra_repr(self) -> str:
         s = '{}, {}, kernel_size={}, stride={}'.format(self.in_channel, self.out_channel, self.kernel_size, self.stride)
         if self.padding:
             s += ', padding={}'.format(self.padding)
