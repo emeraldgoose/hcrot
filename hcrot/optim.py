@@ -1,81 +1,80 @@
-from typing import Tuple
+from typing import Tuple, Mapping
 from hcrot.utils import *
 from hcrot.layers.module import Module
 
 class Optimizer:
     """Gradient Descent"""
-    def __init__(self, Net: Module, lr_rate: float):
-        self.modules = Net.sequential
+    def __init__(self, net: Module, lr_rate: float) -> None:
+        self.net = net
         self.lr_rate = lr_rate
     
-    def update(self, dz: np.ndarray):
-        for module in reversed(self.modules):
+    def update(self, dz: np.ndarray) -> None:
+        for submodule in reversed(self.net.sequential):
+            module = self.net.get_submodule(submodule)
             module_name = module._get_name()
             if module_name in ["Linear", "Conv2d"]:
                 dz, dw, db = module.backward(dz)
-                module.weight = self.weight_update(f'{id(module)}.weight', module.weight, dw, self.lr_rate)
-                module.bias = self.weight_update(f'{id(module)}.bias', module.bias, db, self.lr_rate)
+                module.weight = self.weight_update(f'{submodule}.weight', module.weight, dw, self.lr_rate)
+                module.bias = self.weight_update(f'{submodule}.bias', module.bias, db, self.lr_rate)
             elif module_name == "RNN":
                 dz, dw, db = module.backward(dz)
+                dw.update(db)
                 for k, v in dw.items():
-                    new_weight = self.weight_update(f'{id(module)}.{k}', getattr(module, k), v, self.lr_rate)
-                    setattr(module, k, new_weight)
-                for k, v in db.items():
-                    new_bias = self.weight_update(f'{id(module)}.{k}', getattr(module, k), v, self.lr_rate)
-                    setattr(module, k, new_bias)
+                    new_weight = self.weight_update(f'{submodule}.{k}', getattr(module, k), v, self.lr_rate)
+                    module.__setattr__(k, new_weight)
             elif module_name == "Embedding":
                 dw = module.backward(dz)
-                module.weight = self.weight_update(f'{id(module)}.weight', module.weight, dw, self.lr_rate)
+                module.weight = self.weight_update(f'{submodule}.weight', module.weight, dw, self.lr_rate)
             else:
                 dz = module.backward(dz)
     
-    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float):
+    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float) -> np.ndarray:
         return weight - (lr_rate * grad)
     
-    def _initialize(self, Net: Module):
-        weights = {key : np.zeros_like(param) for key, param in Net.parameters.items()}
+    def _initialize(self) -> Mapping[str, np.ndarray]:
+        weights = {key : np.zeros_like(param) for key, param in self.net.parameters.items()}
         return weights
 
 class SGD(Optimizer):
     """Stochastic Gradient Descent"""
-    def __init__(self, Net: Module, lr_rate: float, momentum: float = 0.9):
-        super().__init__(Net, lr_rate)
+    def __init__(self, net: Module, lr_rate: float, momentum: float = 0.9) -> None:
+        super().__init__(net, lr_rate)
         self.momentum = momentum
-        self.v = self._initialize(Net)
+        self.v = self._initialize()
     
-    def update(self, dz: np.ndarray):
+    def update(self, dz: np.ndarray) -> None:
         return super().update(dz)
 
-    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float):
+    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float) -> np.ndarray:
         self.v[id] = self.momentum * self.v[id] - lr_rate * grad
         return weight + self.v[id]
 
 class Adam(Optimizer):
     """Adaptive moment estimation"""
-    def __init__(self, Net: Module, lr_rate: float, betas: Tuple[float, float] = (0.9, 0.999), eps: float = 1e-8):
-        super().__init__(Net, lr_rate)
+    def __init__(self, net: Module, lr_rate: float, betas: Tuple[float, float] = (0.9, 0.999), eps: float = 1e-8) -> None:
+        super().__init__(net, lr_rate)
         self.betas = betas
         self.eps = eps
-        self.m = self._initialize(Net)
-        self.v = self._initialize(Net)
+        self.m = self._initialize()
+        self.v = self._initialize()
         self.memo = {
             betas[0]: {0:1, 1:betas[0]},
             betas[1]: {0:1, 1:betas[1]}
         }
         self.t = 0
     
-    def update(self, dz: np.ndarray):
+    def update(self, dz: np.ndarray) -> None:
         self.t += 1
         return super().update(dz)
 
-    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float):
+    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float) -> np.ndarray:
         self.m[id] = self.betas[0] * self.m[id] + (1 - self.betas[0]) * grad
         self.v[id] = self.betas[1] * self.v[id] + (1 - self.betas[1]) * (grad ** 2)
         m_hat = self.m[id] / (1 - self._pow(self.betas[0], self.t))
         v_hat = self.v[id] / (1 - self._pow(self.betas[1], self.t))
         return weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
 
-    def _pow(self, beta: float, t: int):
+    def _pow(self, beta: float, t: int) -> float:
         if t in self.memo[beta].keys():
             return self.memo[beta][t]
         
