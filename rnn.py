@@ -29,7 +29,7 @@ def train(args):
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
         for image, label in tqdm(dataloader):
-            image = np.transpose(image,(1,0,2)) # (Length, Batch, Features)
+            image = np.transpose(image, (1,0,2)) # (Length, Batch, Features)
             pred = model.forward(image)
             loss = criterion(pred, label)
             dz = criterion.backward()
@@ -37,7 +37,7 @@ def train(args):
             loss_ += loss.item()
 
         for image, label in tqdm(testloader):
-            image = np.transpose(image,(1,0,2))
+            image = np.transpose(image, (1,0,2))
             pred = model.forward(image)
             correct += np.sum(np.argmax(pred,axis=1)==label)
 

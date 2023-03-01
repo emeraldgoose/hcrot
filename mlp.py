@@ -21,20 +21,20 @@ class Model(layers.Module):
         
     def forward(self, x):
         for module in self.sequential:
-            x = module(x)
+            x = self.get_submodule(module)(x)
         return x
 
 def train(args):
-    model = Model(input_len=28*28,hidden=args.hidden_size,num_classes=10)
+    model = Model(input_len=28*28, hidden=args.hidden_size, num_classes=10)
     criterion = layers.CrossEntropyLoss()
-    optimizer = optim.Adam(model,args.lr_rate)
+    optimizer = optim.Adam(model, args.lr_rate)
 
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
         
         # train
         model.train()
-        for i,(x,y) in enumerate(tqdm(dataloader)):
+        for x, y in tqdm(dataloader):
             pred = model.forward(x)
             loss = criterion(pred,y)
             dz = criterion.backward()
@@ -43,7 +43,7 @@ def train(args):
         
         # test
         model.eval()
-        for i, (x,y) in enumerate(tqdm(testloader)):
+        for x, y in tqdm(testloader):
             pred = model.forward(x)
             correct += np.sum(np.argmax(pred,axis=1)==y)
 

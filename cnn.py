@@ -19,24 +19,25 @@ class CNN(layers.Module):
             layers.MaxPool2d(2,2)
             )
         self.flatten = layers.Flatten()
-        self.dropout2 = layers.Dropout(p=0.5)
+        self.dropout = layers.Dropout(p=0.5)
         self.fc = layers.Linear(112, num_classes)
 
     def forward(self, x):
         for module in self.sequential:
-            x = module(x)
+            x = self.get_submodule(module)(x)
         return x
 
 def train(args):
     model = CNN()
     criterion = layers.CrossEntropyLoss()
     optimizer = optim.Adam(model,args.lr_rate)
+    
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
         
         # train
         model.train()
-        for i, (x,y) in enumerate(tqdm(dataloader)):
+        for x, y in tqdm(dataloader):
             x = np.array(x).reshape(-1,1,28,28) # (B,H,W,C) -> (B,C,H,W)
             pred = model.forward(x)
             loss = criterion(pred,y)
@@ -46,13 +47,12 @@ def train(args):
         
         # test
         model.eval()
-        for i, (x,y) in enumerate(tqdm(testloader)):
+        for x, y in tqdm(testloader):
             x = np.array(x).reshape(-1,1,28,28)
             pred = model.forward(x)
             correct += np.sum(np.argmax(pred,axis=1)==y)
         
         print(f'epoch = [{epoch+1}] | loss = {loss_/len(dataloader)} | ACC = {correct/(len(testloader)*len(y))}')
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='hcrot example training code')
