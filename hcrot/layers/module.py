@@ -15,13 +15,13 @@ class Module:
         super().__setattr__(name, value)
         if isinstance(value, Module):
             self._modules[name] = value
-            if value._get_name() != 'Sequential':
-                self.add_parameters(name, value)
-                self.sequential.append(name)
-            else:
+            if isinstance(value, Sequential):
                 for i, module in enumerate(value):
                     self.add_parameters(f'{name}.{str(i)}', module)
                     self.sequential.append(f'{name}.{str(i)}')
+            else:
+                self.add_parameters(name, value)
+                self.sequential.append(name)
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
