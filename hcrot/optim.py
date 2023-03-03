@@ -1,6 +1,6 @@
 from typing import Tuple, Mapping
 from hcrot.utils import *
-from hcrot.layers.module import Module
+from hcrot.layers import *
 
 class Optimizer:
     """Gradient Descent"""
@@ -11,18 +11,17 @@ class Optimizer:
     def update(self, dz: np.ndarray) -> None:
         for submodule in reversed(self.net.sequential):
             module = self.net.get_submodule(submodule)
-            module_name = module._get_name()
-            if module_name in ["Linear", "Conv2d"]:
+            if isinstance(module, (Linear, Conv2d)):
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{submodule}.weight', module.weight, dw, self.lr_rate)
                 module.bias = self.weight_update(f'{submodule}.bias', module.bias, db, self.lr_rate)
-            elif module_name == "RNN":
+            elif isinstance(module, RNN):
                 dz, dw, db = module.backward(dz)
                 dw.update(db)
                 for k, v in dw.items():
                     new_weight = self.weight_update(f'{submodule}.{k}', getattr(module, k), v, self.lr_rate)
                     module.__setattr__(k, new_weight)
-            elif module_name == "Embedding":
+            elif isinstance(module, Embedding):
                 dw = module.backward(dz)
                 module.weight = self.weight_update(f'{submodule}.weight', module.weight, dw, self.lr_rate)
             else:
