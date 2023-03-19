@@ -1,5 +1,5 @@
 from .module import Module
-from typing import Tuple
+from typing import Tuple, Mapping
 import numpy as np
 
 class RNN(Module):
@@ -70,7 +70,7 @@ class RNN(Module):
         
         return out, hn
 
-    def backward(self, dz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def backward(self, dz: np.ndarray) -> Tuple[np.ndarray, Mapping[str, np.ndarray], Mapping[str, np.ndarray]]:
         """RNN backward process"""
         if self.batch_first and len(dz.shape) == 3:
             dz = np.transpose(dz, (1,0,2))
