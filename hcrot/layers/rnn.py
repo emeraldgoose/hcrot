@@ -1,18 +1,44 @@
 from .module import Module
-from typing import Tuple, Mapping
+from typing import Any, Tuple, Mapping
 import numpy as np
 
-class RNN(Module):
-    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False) -> None:
+class RNNBase(Module):
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, batch_first: bool = False):
         super().__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.batch_first = batch_first
+        self.num_layers = num_layers
+
+    def __call__(self, *args, **kwargs) -> np.ndarray:
+        ...
+    
+    def forward(self, inputs: np.ndarray) -> np.ndarray:
+        ...
+
+    def backward(self, dz: np.ndarray) -> np.ndarray:
+        ...
+
+    def extra_repr(self) -> str:
+        s = '{}, {}'.format(self.input_size, self.hidden_size)
+        if self.num_layers != 1:
+            s += ', num_layers={}'.format(self.num_layers)
+        if self.batch_first is not False:
+            s += ', batch_first={}'.format(self.batch_first)
+        return s
+
+class RNN(RNNBase):
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False) -> None:
+        super().__init__(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            batch_first=batch_first,
+            num_layers=num_layers
+            )
         if nonlinearity not in ['tanh', 'relu']:
             raise ValueError(f'unknown nonlinearity {nonlinearity}')
         self.param_names = []
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
         self.nonlinearity = nonlinearity
-        self.batch_first = batch_first
         self.X = []
         self.hs = None
         self.h0 = None
@@ -134,10 +160,24 @@ class RNN(Module):
             setattr(self, f'bias_ih_l{i}', bias)
             self.param_names += [f'weight_ih_l{i}', f'bias_ih_l{i}']
 
-    def extra_repr(self) -> str:
-        s = '{}, {}'.format(self.input_size, self.hidden_size)
-        if self.num_layers != 1:
-            s += ', num_layers={}'.format(self.num_layers)
-        if self.batch_first is not False:
-            s += ', batch_first={}'.format(self.batch_first)
-        return s
+class LSTM(RNNBase):
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, batch_first: bool = False):
+        super().__init__(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            batch_first=batch_first,
+            num_layers=num_layers
+            )
+        self.reset_parameters()
+        
+    def reset_parameters(self) -> None:
+        pass
+
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        return self.forward(*args, **kwds)
+
+    def forward(self):
+        pass
+
+    def backward(self):
+        pass
