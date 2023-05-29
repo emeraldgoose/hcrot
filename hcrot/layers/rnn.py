@@ -1,23 +1,56 @@
 from .module import Module
+from numpy.typing import NDArray
 from typing import Any, Tuple, Mapping
 import numpy as np
 
 class RNNBase(Module):
-    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, batch_first: bool = False):
+    def __init__(
+            self, 
+            mode: str,
+            input_size: int, 
+            hidden_size: int, 
+            num_layers: int = 1, 
+            batch_first: bool = False
+            ) -> None:
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.batch_first = batch_first
         self.num_layers = num_layers
+        self.param_names = []
 
-    def __call__(self, *args, **kwargs) -> np.ndarray:
-        ...
+        if mode == 'RNN':
+            gate_size = self.hidden_size
+        elif mode == 'LSTM':
+            gate_size = 4 * self.hidden_size
+        else:
+            ValueError(f'Unrecognized RNN mode: {mode}')
+        
+        for k in range(self.num_layers):
+            if not k:
+                setattr(self, f'weight_ih_l{k}', np.zeros((gate_size, self.input_size)))
+            else:
+                setattr(self, f'weight_ih_l{k}', np.zeros((gate_size, self.hidden_size)))
+            setattr(self, f'weight_hh_l{k}', np.zeros((gate_size, self.hidden_size)))
+            setattr(self, f'bias_ih_l{k}', np.zeros((gate_size,)))
+            setattr(self, f'bias_hh_l{k}', np.zeros((gate_size,)))
+            self.param_names += [f'weight_ih_l{k}', f'weight_hh_l{k}', f'bias_ih_l{k}', f'bias_hh_l{k}']
+        
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        sqrt_k = np.sqrt(1 / self.hidden_size)
+        for key in self.param_names:
+            setattr(self, key, np.random.uniform(-sqrt_k, sqrt_k, getattr(self,key).shape))
+
+    def __call__(self, *args, **kwargs):
+        pass
     
-    def forward(self, inputs: np.ndarray) -> np.ndarray:
-        ...
+    def forward(self, x: NDArray):
+        pass
 
-    def backward(self, dz: np.ndarray) -> np.ndarray:
-        ...
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
+        pass
 
     def extra_repr(self) -> str:
         s = '{}, {}'.format(self.input_size, self.hidden_size)
@@ -28,27 +61,34 @@ class RNNBase(Module):
         return s
 
 class RNN(RNNBase):
-    def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, nonlinearity: str = 'tanh', batch_first: bool = False) -> None:
+    def __init__(
+        self, 
+        input_size: int, 
+        hidden_size: int, 
+        num_layers: int = 1, 
+        nonlinearity: str = 'tanh', 
+        batch_first: bool = False
+        ) -> None:
+        if nonlinearity not in ['tanh', 'relu']:
+            raise ValueError(f'unknown nonlinearity {nonlinearity}')
+        
         super().__init__(
+            mode='RNN',
             input_size=input_size,
             hidden_size=hidden_size,
             batch_first=batch_first,
             num_layers=num_layers
             )
-        if nonlinearity not in ['tanh', 'relu']:
-            raise ValueError(f'unknown nonlinearity {nonlinearity}')
-        self.param_names = []
         self.nonlinearity = nonlinearity
         self.X = []
         self.hs = None
         self.h0 = None
         self.relu_mask = []
-        self.reset_parameters()
 
-    def __call__(self, x: np.ndarray, h0: np.ndarray = None) -> np.ndarray:
+    def __call__(self, x: NDArray, h0: NDArray = None):
         return self.forward(x, h0)
 
-    def forward(self, x: np.ndarray, h0: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
+    def forward(self, x: NDArray, h0: NDArray = None) -> Tuple[NDArray, NDArray]:
         """
         RNN forward process
         (input_length or input_time_length, batch_size, input_features) = (L, B, F)
@@ -58,12 +98,11 @@ class RNN(RNNBase):
         """
         if self.batch_first:
             x = np.transpose(x, (1,0,2))
-        
         (L, B, _), H = x.shape, self.hidden_size
 
         if self.nonlinearity == 'relu':
             self.relu_mask = np.zeros((self.num_layers, L, B, H))
-        
+
         hn = np.zeros((self.num_layers, B, H)) if h0 == None else h0 # (num_layers, B, H)
         self.h0 = hn.copy() # deep copy
         self.hs = np.zeros((self.num_layers, L, B, H)) # (num_layers, L, B, H)
@@ -96,7 +135,7 @@ class RNN(RNNBase):
         
         return out, hn
 
-    def backward(self, dz: np.ndarray) -> Tuple[np.ndarray, Mapping[str, np.ndarray], Mapping[str, np.ndarray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
         """RNN backward process"""
         if self.batch_first and len(dz.shape) == 3:
             dz = np.transpose(dz, (1,0,2))
@@ -115,7 +154,7 @@ class RNN(RNNBase):
         
         return dx, dw, db
 
-    def _layer_backward(self, layer: int, dhnext: np.ndarray, dz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _layer_backward(self, layer: int, dhnext: NDArray, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray, NDArray, NDArray]:
         """RNN layer backward process"""
         T = len(self.X[layer])
         wih, whh = getattr(self, f'weight_ih_l{layer}'), getattr(self, f'weight_hh_l{layer}')
@@ -143,22 +182,6 @@ class RNN(RNNBase):
             dhnext = np.dot(dhtanh, whh) # (B, H)
         
         return dx, dwih, dwhh, dbih, dbhh
-
-    def reset_parameters(self) -> None:
-        sqrt_k = np.sqrt(1 / self.hidden_size)
-        for i in range(self.num_layers):
-            weight = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size, self.hidden_size))
-            bias = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size,))
-            setattr(self, f'weight_hh_l{i}', weight)
-            setattr(self, f'bias_hh_l{i}', bias)
-            self.param_names += [f'weight_hh_l{i}', f'bias_hh_l{i}']
-        
-        for i in range(self.num_layers):
-            weight = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size, self.input_size) if i == 0 else (self.hidden_size, self.hidden_size))
-            bias = np.random.uniform(-sqrt_k, sqrt_k, (self.hidden_size,))
-            setattr(self, f'weight_ih_l{i}', weight)
-            setattr(self, f'bias_ih_l{i}', bias)
-            self.param_names += [f'weight_ih_l{i}', f'bias_ih_l{i}']
 
 class LSTM(RNNBase):
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1, batch_first: bool = False):

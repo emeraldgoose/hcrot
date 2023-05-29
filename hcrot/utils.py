@@ -1,4 +1,5 @@
 from typing import Any, Mapping
+from numpy.typing import NDArray
 import numpy as np
 import pickle, os
 
@@ -6,6 +7,9 @@ def one_hot_encoding(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     ret = np.zeros_like(x)
     ret[np.arange(y.size), y]=1
     return ret
+
+def sigmoid(x: NDArray) -> NDArray:
+    return 1 / (1 + np.exp(-x))
 
 def softmax(x: np.ndarray) -> np.ndarray:
     axis = _get_softmax_axis(x.ndim)
