@@ -40,7 +40,7 @@ class Module:
         self._modules[name] = module
 
     def add_parameters(self, prefix: str, module: T) -> None:
-        if module._get_name() == 'RNN':
+        if module._get_name() in ('RNN', 'LSTM'):
             for param in module.param_names:
                 self.parameters[f'{prefix}.{param}'] = getattr(module, param)
         else:
