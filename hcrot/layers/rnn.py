@@ -1,8 +1,9 @@
+from numpy.typing import NDArray
+from typing import Tuple, Mapping
+import numpy as np
+
 from .module import Module
 from ..utils import sigmoid
-from numpy.typing import NDArray
-from typing import Any, Tuple, Mapping
-import numpy as np
 
 class RNNBase(Module):
     def __init__(
@@ -100,7 +101,7 @@ class RNN(RNNBase):
         if h_0 == None:
             h_0 = np.zeros((self.num_layers, B, H))
 
-        self.h = [{-1:h_0[i]} for i in range(self.num_layers)]
+        self.h = [{-1:h_0[i]} for i in range(self.num_layers)] # hidden_state
         out = np.zeros((T, B, H))
         
         for l in range(self.num_layers):
@@ -132,7 +133,7 @@ class RNN(RNNBase):
         
         dw, db, dx = {}, {}, dz
         for l in reversed(range(self.num_layers)):
-            dhnext = np.zeros(self.h[l][0].shape) # (L, B, H)
+            dhnext = np.zeros_like(self.h[l][0])
             dx, dwih, dwhh, dbih, dbhh = self.__backward(l, dhnext, dx)
             dw[f'weight_ih_l{l}'] = dwih
             dw[f'weight_hh_l{l}'] = dwhh
@@ -200,13 +201,13 @@ class LSTM(RNNBase):
         if c_0 == None:
             c_0 = np.zeros((self.num_layers, B, H))
         
-        self.h = [{-1:h_0[i]} for i in range(self.num_layers)]
-        self.c = [{-1:c_0[i]} for i in range(self.num_layers)]
+        self.h = [{-1:h_0[i]} for i in range(self.num_layers)] # hidden_state
+        self.c = [{-1:c_0[i]} for i in range(self.num_layers)] # cell_state
 
-        self.i = np.zeros((self.num_layers, T, B, H))
-        self.f = np.zeros((self.num_layers, T, B, H))
-        self.g = np.zeros((self.num_layers, T, B, H))
-        self.o = np.zeros((self.num_layers, T, B, H))
+        self.i = np.zeros((self.num_layers, T, B, H)) # input_gate
+        self.f = np.zeros((self.num_layers, T, B, H)) # forget_gate
+        self.g = np.zeros((self.num_layers, T, B, H)) # gate_gate
+        self.o = np.zeros((self.num_layers, T, B, H)) # output_gate
         out = np.zeros((T, B, H))
         
         for l in range(self.num_layers):
@@ -237,8 +238,8 @@ class LSTM(RNNBase):
         
         dw, db, dx = {}, {}, dz
         for l in reversed(range(self.num_layers)):
-            dhnext = np.zeros(self.h[l][0].shape)
-            dcnext = np.zeros(self.c[l][0].shape)
+            dhnext = np.zeros_like(self.h[l][0])
+            dcnext = np.zeros_like(self.c[l][0])
             dx, dwih, dwhh, dbih, dbhh = self.__backward(l, dhnext, dcnext, dx)
             dw[f'weight_ih_l{l}'] = dwih
             dw[f'weight_hh_l{l}'] = dwhh
