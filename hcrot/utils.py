@@ -3,7 +3,7 @@ from numpy.typing import NDArray
 import numpy as np
 import pickle, os
 
-def one_hot_encoding(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+def one_hot_encoding(x: NDArray, y: NDArray) -> NDArray:
     ret = np.zeros_like(x)
     ret[np.arange(y.size), y]=1
     return ret
@@ -11,7 +11,7 @@ def one_hot_encoding(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 def sigmoid(x: NDArray) -> NDArray:
     return 1 / (1 + np.exp(-x))
 
-def softmax(x: np.ndarray) -> np.ndarray:
+def softmax(x: NDArray) -> NDArray:
     axis = _get_softmax_axis(x.ndim)
     sum_ = np.sum(np.exp(x), axis=axis)
     sum_ += np.full(sum_.shape, 1e-7)
@@ -20,7 +20,7 @@ def softmax(x: np.ndarray) -> np.ndarray:
 def _get_softmax_axis(ndim: int) -> int:
     return 0 if ndim in [0,1,3] else 1
 
-def convolve2d(a: np.ndarray, f: np.ndarray) -> np.ndarray:
+def convolve2d(a: NDArray, f: NDArray) -> NDArray:
     # Ref: https://stackoverflow.com/a/43087771
     a,f = np.array(a), np.array(f)
     s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
@@ -33,7 +33,7 @@ def save(obj: Any, path: str) -> None:
     with open(path, mode='wb') as f:
         f.write(byte_string)
 
-def load(path: str) -> Mapping[str, np.ndarray]:
+def load(path: str) -> Mapping[str, NDArray]:
     if not os.path.exists(path):
         raise FileNotFoundError(f'File not found : {path}')
     
