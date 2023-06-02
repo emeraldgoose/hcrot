@@ -156,15 +156,15 @@ class RNN(RNNBase):
 
         for t in reversed(range(T)):
             """rnn cell backward process"""
-            dh = dhnext + (dz[t] if dz.ndim == 3 else (dz if t == T - 1 else 0)) # (B, H)            
-            dhtanh = ((1 - self.h[layer][t] ** 2) if self.nonlinearity == 'tanh' else self.relu_mask[layer][t]) * dh # (B, H)
+            dh = dhnext + (dz[t] if dz.ndim == 3 else (dz if t == T - 1 else 0))
+            dhtanh = ((1 - self.h[layer][t] ** 2) if self.nonlinearity == 'tanh' else self.relu_mask[layer][t]) * dh
             
-            dx[t] = np.dot(dhtanh, wih) # (B, F)
-            dwih += np.dot(dhtanh.T, self.X[layer][t]) # (H, F)
-            dwhh += np.dot(dhtanh.T, self.h[layer][t-1]) # (H, H)
-            dbih += np.sum(dhtanh, axis=0) # (H, 1)
-            dbhh += np.sum(dhtanh, axis=0) # (H, 1)
-            dhnext = np.dot(dhtanh, whh) # (B, H)
+            dx[t] = np.dot(dhtanh, wih)
+            dwih += np.dot(dhtanh.T, self.X[layer][t])
+            dwhh += np.dot(dhtanh.T, self.h[layer][t-1])
+            dbih += np.sum(dhtanh, axis=0)
+            dbhh += np.sum(dhtanh, axis=0)
+            dhnext = np.dot(dhtanh, whh)
         
         return dx, dwih, dwhh, dbih, dbhh
 

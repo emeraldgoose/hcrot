@@ -11,18 +11,36 @@ class RNN(layers.Module):
         self.rnn = layers.RNN(
             input_size=28,
             hidden_size=hidden_size,
-            num_layers=2,
+            num_layers=1,
             nonlinearity='tanh',
+            batch_first=False
+        )
+        self.fc = layers.Linear(hidden_size, 10)
+
+    def forward(self, x):
+        x,_ = self.rnn(x)
+        return self.fc(x[-1])
+
+class LSTM(layers.Module):
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.lstm = layers.LSTM(
+            input_size=28,
+            hidden_size=hidden_size,
+            num_layers=1,
             batch_first=False
             )
         self.fc = layers.Linear(hidden_size, 10)
     
     def forward(self, x):
-        x,_ = self.rnn(x)
+        x,_,_ = self.lstm(x)
         return self.fc(x[-1])
 
 def train(args):
-    model = RNN(args.hidden_size)
+    if args.model == 'rnn':
+        model = RNN(args.hidden_size)
+    else:
+        model = LSTM(args.hidden_size)
     criterion = layers.CrossEntropyLoss()
     optimizer = optim.Adam(model,args.lr_rate)
 
@@ -35,7 +53,7 @@ def train(args):
             dz = criterion.backward()
             optimizer.update(dz)
             loss_ += loss.item()
-
+        
         for image, label in tqdm(testloader):
             image = np.transpose(image, (1,0,2))
             pred = model.forward(image)
@@ -45,6 +63,7 @@ def train(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='hcrot example training code')
+    parser.add_argument('--model', default='rnn', type=str, help='select model RNN or LSTM')
     parser.add_argument('--lr_rate', default=1e-3, type=float, help='Learning Rate')
     parser.add_argument('--epochs', default=10, type=int, help='Epochs')
     parser.add_argument('--hidden_size', default=256, type=int, help='RNN hidden size')
