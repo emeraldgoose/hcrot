@@ -15,7 +15,7 @@ class Optimizer:
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{submodule}.weight', module.weight, dw, self.lr_rate)
                 module.bias = self.weight_update(f'{submodule}.bias', module.bias, db, self.lr_rate)
-            elif isinstance(module, RNN):
+            elif isinstance(module, (RNN, LSTM)):
                 dz, dw, db = module.backward(dz)
                 dw.update(db)
                 for k, v in dw.items():
