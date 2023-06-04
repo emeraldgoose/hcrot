@@ -1,3 +1,4 @@
+from numpy.typing import NDArray
 from typing import Tuple, Mapping
 from hcrot.utils import *
 from hcrot.layers import *
@@ -8,7 +9,7 @@ class Optimizer:
         self.net = net
         self.lr_rate = lr_rate
     
-    def update(self, dz: np.ndarray) -> None:
+    def update(self, dz: NDArray) -> None:
         for submodule in reversed(self.net.sequential):
             module = self.net.get_submodule(submodule)
             if isinstance(module, (Linear, Conv2d)):
@@ -27,10 +28,10 @@ class Optimizer:
             else:
                 dz = module.backward(dz)
     
-    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float) -> np.ndarray:
+    def weight_update(self, id: int, weight: NDArray, grad: NDArray, lr_rate: float) -> NDArray:
         return weight - (lr_rate * grad)
     
-    def _initialize(self) -> Mapping[str, np.ndarray]:
+    def _initialize(self) -> Mapping[str, NDArray]:
         weights = {key : np.zeros_like(param) for key, param in self.net.parameters.items()}
         return weights
 
@@ -41,10 +42,10 @@ class SGD(Optimizer):
         self.momentum = momentum
         self.v = self._initialize()
     
-    def update(self, dz: np.ndarray) -> None:
+    def update(self, dz: NDArray) -> None:
         return super().update(dz)
 
-    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float) -> np.ndarray:
+    def weight_update(self, id: int, weight: NDArray, grad: NDArray, lr_rate: float) -> NDArray:
         self.v[id] = self.momentum * self.v[id] - lr_rate * grad
         return weight + self.v[id]
 
@@ -62,11 +63,11 @@ class Adam(Optimizer):
         }
         self.t = 0
     
-    def update(self, dz: np.ndarray) -> None:
+    def update(self, dz: NDArray) -> None:
         self.t += 1
         return super().update(dz)
 
-    def weight_update(self, id: int, weight: np.ndarray, grad: np.ndarray, lr_rate: float) -> np.ndarray:
+    def weight_update(self, id: int, weight: NDArray, grad: NDArray, lr_rate: float) -> NDArray:
         self.m[id] = self.betas[0] * self.m[id] + (1 - self.betas[0]) * grad
         self.v[id] = self.betas[1] * self.v[id] + (1 - self.betas[1]) * (grad ** 2)
         m_hat = self.m[id] / (1 - self._pow(self.betas[0], self.t))

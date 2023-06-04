@@ -1,3 +1,4 @@
+from numpy.typing import NDArray
 from typing import Union, Tuple
 from .module import Module
 from hcrot.utils import *
@@ -29,10 +30,10 @@ class Conv2d(Module):
         self.weight = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size))
         self.bias = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1))
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: NDArray) -> NDArray:
         # original image shape (B, H, W, C) -> converted (B, C, H, W)
         self.X = x
         pad_x = self.Pad(x, self.padding)
@@ -49,7 +50,7 @@ class Conv2d(Module):
                 ret[b][cout] += self.bias[cout]
         return ret
     
-    def Pad(self, x: np.ndarray, padding: tuple) -> np.ndarray:
+    def Pad(self, x: NDArray, padding: tuple) -> NDArray:
         B, C, H, W = x.shape
         ret = np.zeros((B,C,H+padding[0]*2, W+padding[1]*2))
         for b in range(B):
@@ -57,7 +58,7 @@ class Conv2d(Module):
                 ret[b][c] = np.pad(x[b][c], ((padding[0], padding[0]), (padding[1], padding[1])))
         return ret
 
-    def backward(self, dz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
         dw, db = np.zeros_like(self.weight), np.zeros_like(self.bias)
         B, out_channel, in_channel = dz.shape[0], dz.shape[1], self.X.shape[1]
         

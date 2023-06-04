@@ -1,4 +1,5 @@
 from .module import Module
+from numpy.typing import NDArray
 from typing import Optional, Tuple
 import numpy as np
 
@@ -15,15 +16,15 @@ class Linear(Module):
         self.weight = np.random.uniform(-sqrt_k, sqrt_k, (self.in_features, self.out_features))
         self.bias = np.random.uniform(-sqrt_k, sqrt_k, (1, self.out_features))
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: NDArray) -> NDArray:
         self.X = x
         mat = np.dot(x, self.weight)
         return mat + self.bias
 
-    def backward(self, dz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
         dw = np.dot(self.X.T, dz)
         db = np.sum(dz, axis=0) / len(dz)
         dx = np.dot(dz, self.weight.T)
@@ -41,10 +42,10 @@ class Flatten(Module):
         self.end_dim = end_dim
         self.origin_shape = None
     
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: NDArray) -> NDArray:
         size_ = x.shape
         self.origin_shape = size_
         
@@ -58,7 +59,7 @@ class Flatten(Module):
         new_size = shape[:self.start_dim] + [np.product(shape[self.start_dim:self.end_dim+1])] + shape[self.end_dim+1:]
         return np.reshape(x, new_size)
 
-    def backward(self, dz: np.ndarray) -> np.ndarray:
+    def backward(self, dz: NDArray) -> NDArray:
         return np.reshape(dz, self.origin_shape)
 
     def extra_repr(self) -> str:
@@ -80,14 +81,14 @@ class Embedding(Module):
         if self.padding_idx is not None:
             self.weight[self.padding_idx].fill(0)
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: NDArray) -> NDArray:
         self.X = x
         return self.weight[x]
 
-    def backward(self, dz: np.ndarray) -> np.ndarray:
+    def backward(self, dz: NDArray) -> NDArray:
         dw = dz[self.X]
         return dw
 
@@ -105,10 +106,10 @@ class Dropout(Module):
         if p < 0 or p > 1:
             raise ValueError('p is between 0 and 1')
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: NDArray) -> NDArray:
         """
         In Pytorch Docs
           - the outputs are scaled by a factor 1 / (1 - p) during training.
@@ -120,5 +121,5 @@ class Dropout(Module):
         self.mask = np.random.uniform(0, 1, x.shape) > self.p
         return x * self.mask / self.scale_factor
 
-    def backward(self, dz: np.ndarray) -> np.ndarray:
+    def backward(self, dz: NDArray) -> NDArray:
         return dz * self.mask / self.scale_factor

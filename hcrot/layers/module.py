@@ -1,3 +1,4 @@
+from numpy.typing import NDArray
 from typing import Union, TypeVar, Mapping
 from collections import OrderedDict
 import numpy as np
@@ -60,13 +61,13 @@ class Module:
         for module in self.sequential:
             self.get_submodule(module).eval()
 
-    def state_dict(self) -> Mapping[str, np.ndarray]:
+    def state_dict(self) -> Mapping[str, NDArray]:
         for module_name in self.sequential:
             module = self.get_submodule(module_name)
             self.add_parameters(module_name, module)
         return self.parameters
 
-    def load_state_dict(self, state_dict: Mapping[str, np.ndarray]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, NDArray]) -> None:
         for param_name, value in state_dict.items():
             param_name = param_name.split('.')
             module_name, weight_name = '.'.join(param_name[:-1]), param_name[-1]
