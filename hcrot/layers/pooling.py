@@ -1,5 +1,5 @@
 from .module import Module
-from typing import Union, Tuple
+from typing import Union
 from numpy.typing import NDArray
 import numpy as np
 
@@ -15,7 +15,7 @@ class MaxPool2d(Module):
         
         self.stride = stride
         if self.stride == None:
-            self.stride = (self.kernel_size[0], self.kernel_size[1])
+            self.stride = self.kernel_size
         elif isinstance(stride, int):
             self.stride = (stride, stride)
     
@@ -28,29 +28,24 @@ class MaxPool2d(Module):
         hout = np.floor((hin - (self.kernel_size[0]-1) - 1) / self.stride[0] + 1).astype(int)
         wout = np.floor((win - (self.kernel_size[1]-1) - 1) / self.stride[1] + 1).astype(int)
         ret = np.zeros((batch, channel, hout, wout))
+        
         for b in range(batch):
             for c in range(channel):
                 for h in range(hout):
                     for w in range(wout):
-                        ret[b][c][h][w],mm,nn = self.max_in_box(x[b][c],h,w)
-                        self.gradient.append((b,c,mm,nn))
+                        start_h, start_w = h * self.stride[0], w * self.stride[1]
+                        end_h, end_w = start_h + self.kernel_size[0], start_w + self.kernel_size[1]
+                        mat = x[b,c,start_h:end_h,start_w:end_w]
+                        ret[b,c,h,w] = mat.max()
+                        x_, y_ = np.where(mat==ret[b,c,h,w])
+                        self.gradient.append((b,c,x_[0]+start_h,y_[0]+start_w))
+
         return ret
-
-    def max_in_box(self, x: NDArray, h: int, w: int) -> Tuple[float, int, int]:
-        max_value = -np.inf
-        mm, nn = -1, -1
-        for m in range(self.kernel_size[0]):
-            for n in range(self.kernel_size[1]):
-                v = x[self.stride[0] * h + m][self.stride[1] * w + n]
-                if v > max_value:
-                    max_value = v
-                    mm, nn = self.stride[0] * h + m, self.stride[1] * w + n
-        return max_value, mm, nn
-
+    
     def backward(self, dz: NDArray) -> NDArray:
         dx = np.zeros(self.input_shape)
         for (b,c,h,w),d_ in zip(self.gradient, dz.reshape(-1)):
-            dx[b][c][h][w] = d_
+            dx[b,c,h,w] = d_
         return dx
 
     def extra_repr(self) -> str:
@@ -59,7 +54,6 @@ class MaxPool2d(Module):
 class AvgPool2d(Module):
     def __init__(self, kernel_size: Union[int, tuple], stride: Union[int, tuple] = None) -> None:
         super().__init__()
-        self.gradient = []
         self.input_shape = None
         
         self.kernel_size = kernel_size
@@ -68,7 +62,7 @@ class AvgPool2d(Module):
         
         self.stride = stride
         if self.stride == None:
-            self.stride = (self.kernel_size[0], self.kernel_size[1])
+            self.stride = self.kernel_size
         elif isinstance(stride, int):
             self.stride = (stride, stride)
 
@@ -81,19 +75,32 @@ class AvgPool2d(Module):
         hout = np.floor((hin - (self.kernel_size[0]-1) - 1) / self.stride[0] + 1).astype(int)
         wout = np.floor((win - (self.kernel_size[1]-1) - 1) / self.stride[1] + 1).astype(int)
         ret = np.zeros((batch, channel, hout, wout))
+        
         for b in range(batch):
             for c in range(channel):
                 for h in range(hout):
                     for w in range(wout):
-                        ret[b][c][h][w],mm,nn = self.avg_in_box(x[b][c],h,w)
-                        self.gradient.append((b,c,mm,nn))
+                        start_h, start_w = h * self.stride[0], w * self.stride[1]
+                        end_h, end_w = start_h + self.kernel_size[0], start_w + self.kernel_size[1]
+                        mat = x[b,c,start_h:end_h,start_w:end_w]
+                        ret[b,c,h,w] = mat.mean()
+
         return ret
-    
-    def avg_in_box(self, x: NDArray, h: int, w: int) -> Tuple[float, int, int]:
-        pass
 
     def backward(self, dz: NDArray) -> NDArray:
         dx = np.zeros(self.input_shape)
-        for (b,c,h,w),d_ in zip(self.gradient, dz.reshape(-1)):
-            dx[b][c][h][w] = d_
+        B, C, H, W = self.input_shape
+        for b in range(B):
+            for c in range(C):
+                for h in range(H-self.kernel_size[0]+1):
+                    for w in range(W-self.kernel_size[1]+1):
+                        start_h, start_w = h * self.stride[0], w * self.stride[1]
+                        end_h, end_w = start_h + self.kernel_size[0], start_w + self.kernel_size[1]
+                        if end_h > H or end_w > W:
+                            continue
+                        dx[b,c,start_h:end_h,start_w:end_w] += dz[b,c,h,w]/np.product(self.kernel_size)
+
         return dx
+
+    def extra_repr(self) -> str:
+        return 'kernel_size={}, stride={}'.format(self.kernel_size, self.stride)
