@@ -8,13 +8,16 @@ class Linear(Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.weight = np.zeros((self.in_features, self.out_features))
+        self.bias = np.zeros((1, self.out_features))
+        self.param_names = ['weight', 'bias']
         self.X = None
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
         sqrt_k = np.sqrt(1 / self.in_features)
-        self.weight = np.random.uniform(-sqrt_k, sqrt_k, (self.in_features, self.out_features))
-        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (1, self.out_features))
+        for key in self.param_names:
+            setattr(self, key, np.random.uniform(-sqrt_k, sqrt_k, getattr(self,key).shape))
 
     def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
@@ -118,7 +121,7 @@ class Dropout(Module):
         if not self.training:
             return x
 
-        self.mask = np.random.uniform(0, 1, x.shape) > self.p
+        self.mask = np.random.binomial(1, self.scale_factor, x.shape)
         return x * self.mask / self.scale_factor
 
     def backward(self, dz: NDArray) -> NDArray:
