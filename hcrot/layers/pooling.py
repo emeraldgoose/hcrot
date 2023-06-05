@@ -45,7 +45,7 @@ class MaxPool2d(Module):
     def backward(self, dz: NDArray) -> NDArray:
         dx = np.zeros(self.input_shape)
         for (b,c,h,w),d_ in zip(self.gradient, dz.reshape(-1)):
-            dx[b,c,h,w] = d_
+            dx[b,c,h,w] += d_
         return dx
 
     def extra_repr(self) -> str:
