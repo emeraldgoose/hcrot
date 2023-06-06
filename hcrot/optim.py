@@ -10,21 +10,20 @@ class Optimizer:
         self.lr_rate = lr_rate
     
     def update(self, dz: NDArray) -> None:
-        for submodule in reversed(self.net.sequential):
-            module = self.net.get_submodule(submodule)
+        for name, module in reversed(self.net.sequential):
             if isinstance(module, (Linear, Conv2d)):
                 dz, dw, db = module.backward(dz)
-                module.weight = self.weight_update(f'{submodule}.weight', module.weight, dw, self.lr_rate)
-                module.bias = self.weight_update(f'{submodule}.bias', module.bias, db, self.lr_rate)
+                module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
+                module.bias = self.weight_update(f'{name}.bias', module.bias, db, self.lr_rate)
             elif isinstance(module, (RNN, LSTM)):
                 dz, dw, db = module.backward(dz)
                 dw.update(db)
                 for k, v in dw.items():
-                    new_weight = self.weight_update(f'{submodule}.{k}', getattr(module, k), v, self.lr_rate)
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
                     module.__setattr__(k, new_weight)
             elif isinstance(module, Embedding):
                 dw = module.backward(dz)
-                module.weight = self.weight_update(f'{submodule}.weight', module.weight, dw, self.lr_rate)
+                module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
             else:
                 dz = module.backward(dz)
     

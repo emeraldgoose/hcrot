@@ -20,9 +20,8 @@ class Model(layers.Module):
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         
     def forward(self, x):
-        for module in self.sequential:
-            x = self.get_submodule(module)(x)
-        return x
+        o = self.dropout(self.net1(x))
+        return self.fc(self.net2(o))
 
 def train(args):
     model = Model(input_len=28*28, hidden=args.hidden_size, num_classes=10)

@@ -1,7 +1,6 @@
 from numpy.typing import NDArray
 from typing import Union, TypeVar, Mapping
 from collections import OrderedDict
-import numpy as np
 
 T = TypeVar("T", bound="Module")
 
@@ -19,10 +18,10 @@ class Module:
             if isinstance(value, Sequential):
                 for i, module in enumerate(value):
                     self.add_parameters(f'{name}.{str(i)}', module)
-                    self.sequential.append(f'{name}.{str(i)}')
+                    self.sequential.append((f'{name}.{str(i)}', module))
             else:
                 self.add_parameters(name, value)
-                self.sequential.append(name)
+                self.sequential.append((name, value))
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
@@ -33,7 +32,7 @@ class Module:
         module = self.__getattribute__(target[0])
         
         if len(target) > 1:
-            return module.get_submodule('.'.join(target[1:]))
+            return self.get_submodule('.'.join(target[1:]))
         
         return module
 
@@ -53,13 +52,13 @@ class Module:
 
     def train(self) -> None:
         self.training = True
-        for module in self.sequential:
-            self.get_submodule(module).train()
+        for _, module in self.sequential:
+            module.train()
 
     def eval(self) -> None:
         self.training = False
-        for module in self.sequential:
-            self.get_submodule(module).eval()
+        for _, module in self.sequential:
+            module.eval()
 
     def state_dict(self) -> Mapping[str, NDArray]:
         for module_name in self.sequential:
@@ -122,3 +121,11 @@ class Sequential(Module):
     
     def __getitem__(self, idx: Union[int, str]) -> T:
         return self.args[int(idx)]
+    
+    def __call__(self, x: NDArray) -> NDArray:
+        return self.forward(x)
+
+    def forward(self, x: NDArray) -> NDArray:
+        for module in self.args:
+            x = module(x)
+        return x

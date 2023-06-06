@@ -4,7 +4,14 @@ from .module import Module
 from hcrot.utils import *
 
 class Conv2d(Module):
-    def __init__(self, in_channel: int, out_channel: int, kernel: Union[int,tuple], stride: Union[int,tuple] = 1, padding: Union[int,tuple] = 0) -> None:
+    def __init__(
+            self, 
+            in_channel: int, 
+            out_channel: int, 
+            kernel: Union[int,tuple], 
+            stride: Union[int,tuple] = 1, 
+            padding: Union[int,tuple] = 0
+            ) -> None:
         # default group = 1, dilation = 1
         super().__init__()
         self.in_channel = in_channel

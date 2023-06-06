@@ -23,9 +23,9 @@ class CNN(layers.Module):
         self.fc = layers.Linear(112, num_classes)
 
     def forward(self, x):
-        for module in self.sequential:
-            x = self.get_submodule(module)(x)
-        return x
+        o = self.layer1(x)
+        o = self.layer2(o)
+        return self.fc(self.dropout(self.flatten(o)))
 
 def train(args):
     model = CNN()
