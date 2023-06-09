@@ -41,7 +41,6 @@ class Conv2d(Module):
         return self.forward(x)
 
     def forward(self, x: NDArray) -> NDArray:
-        # original image shape (B, H, W, C) -> converted (B, C, H, W)
         self.X = x
         pad_x = self.Pad(x, self.padding)
         image, kernel, B = pad_x[0][0], self.weight[0][0], len(x)
@@ -67,27 +66,21 @@ class Conv2d(Module):
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
         dw, db = np.zeros_like(self.weight), np.zeros_like(self.bias)
-        B, out_channel, in_channel = dz.shape[0], dz.shape[1], self.X.shape[1]
+        weight_h, weight_w = self.weight.shape[2:]
+        (B, Cout), Cin = dz.shape[:2], self.X.shape[1]
+        
+        pad_dx = self.Pad(dz, (weight_h - 1, weight_w - 1))
+        dx = np.zeros_like(self.X)
         
         for b in range(B):
-            for cin in range(in_channel):
-                for cout in range(out_channel):
+            for cin in range(Cin):
+                for cout in range(Cout):
                     dw[cout][cin] += convolve2d(self.X[b][cin], dz[b][cout])
-            for cout in range(out_channel):
+                    dx[b][cin] += convolve2d(pad_dx[b][cin], np.flip(self.weight[cout][cin]))
+            for cout in range(Cout):
                 db[cout][0] = np.sum(dz[b][cout], axis=None)
 
-        # dz need 0-pad (1,1), dx = convolution(dz, weight)
-        pad_h, pad_w = self.weight.shape[2]-1, self.weight.shape[3]-1
-        dz = self.Pad(dz, (pad_h, pad_w))
-        
-        dz_ = np.zeros_like(self.X)
-        for b in range(B):
-            for cout in range(out_channel):
-                for cin in range(in_channel):
-                    flip_w = np.flip(self.weight[cout][cin])
-                    dz_[b][cin] += convolve2d(dz[b][cin], flip_w)
-        
-        return dz_, dw / B, db / B
+        return dx, dw / B, db / B
 
     def extra_repr(self) -> str:
         s = '{}, {}, kernel_size={}, stride={}'.format(self.in_channel, self.out_channel, self.kernel_size, self.stride)
