@@ -206,7 +206,7 @@ class LSTM(RNNBase):
 
         self.i = np.zeros((self.num_layers, T, B, H)) # input_gate
         self.f = np.zeros((self.num_layers, T, B, H)) # forget_gate
-        self.g = np.zeros((self.num_layers, T, B, H)) # gate_gate
+        self.g = np.zeros((self.num_layers, T, B, H)) # input_gate
         self.o = np.zeros((self.num_layers, T, B, H)) # output_gate
         out = np.zeros((T, B, H))
         
