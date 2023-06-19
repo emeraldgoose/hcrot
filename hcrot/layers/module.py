@@ -32,7 +32,7 @@ class Module:
         module = self.__getattribute__(target[0])
         
         if len(target) > 1:
-            return self.get_submodule('.'.join(target[1:]))
+            return module.get_submodule('.'.join(target[1:]))
         
         return module
 
@@ -61,7 +61,7 @@ class Module:
             module.eval()
 
     def state_dict(self) -> Mapping[str, NDArray]:
-        for module_name in self.sequential:
+        for module_name, _ in self.sequential:
             module = self.get_submodule(module_name)
             self.add_parameters(module_name, module)
         return self.parameters
@@ -71,7 +71,7 @@ class Module:
             param_name = param_name.split('.')
             module_name, weight_name = '.'.join(param_name[:-1]), param_name[-1]
             
-            if module_name not in self.sequential:
+            if module_name not in dict(self.sequential).keys():
                 raise KeyError(f'Missing key in state_dict: {module_name}')
             
             module = self.get_submodule(module_name)
