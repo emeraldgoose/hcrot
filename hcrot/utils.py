@@ -13,6 +13,11 @@ def sigmoid(x: NDArray) -> NDArray:
 
 def softmax(x: NDArray) -> NDArray:
     axis = _get_softmax_axis(x.ndim)
+    if axis == 1:
+        result = np.zeros_like(x)
+        for b in range(x.shape[0]):
+            result[b] = np.exp(x[b]) / np.sum(np.exp(x[b]),axis=0)
+        return result
     sum_ = np.sum(np.exp(x), axis=axis)
     sum_ += np.full(sum_.shape, 1e-7)
     return np.array(np.exp(x).T / sum_).T
