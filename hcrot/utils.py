@@ -1,7 +1,7 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, Tuple
 from numpy.typing import NDArray
 import numpy as np
-import pickle, os
+import pickle, os, math
 
 def one_hot_encoding(x: NDArray, y: NDArray) -> NDArray:
     ret = np.zeros_like(x)
@@ -44,3 +44,20 @@ def load(path: str) -> Mapping[str, NDArray]:
     
     with open(path, mode='rb') as f:
         return pickle.load(f)
+    
+def _calculated_fan_in_and_fan_out(weight: NDArray) -> Tuple[int, int]:
+    if weight.ndim < 2:
+        raise ValueError('computed for weight dimension > 1')
+    num_input_fmaps, num_output_fmaps = weight.shape[:2]
+    receptive_field_size = 1
+    for s in weight.shape[2:]:
+        receptive_field_size *= s
+    fan_in = num_input_fmaps * receptive_field_size
+    fan_out = num_output_fmaps * receptive_field_size
+    return fan_in, fan_out
+
+def xaiver_uniform_(weight: NDArray, gain=1):
+    fan_in, fan_out = _calculated_fan_in_and_fan_out(weight)
+    std = gain * math.sqrt(2.0 / (fan_in + fan_out))
+    a = math.sqrt(3.0) * std
+    return np.random.uniform(-a, a, weight.shape)
