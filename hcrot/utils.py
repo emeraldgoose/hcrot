@@ -56,8 +56,8 @@ def _calculated_fan_in_and_fan_out(weight: NDArray) -> Tuple[int, int]:
     fan_out = num_output_fmaps * receptive_field_size
     return fan_in, fan_out
 
-def xaiver_uniform_(weight: NDArray, gain=1):
+def xavier_uniform_(weight: NDArray, gain: float = 1.0) -> NDArray:
     fan_in, fan_out = _calculated_fan_in_and_fan_out(weight)
-    std = gain * math.sqrt(2.0 / (fan_in + fan_out))
+    std = gain * math.sqrt(2.0 / float(fan_in + fan_out))
     a = math.sqrt(3.0) * std
     return np.random.uniform(-a, a, weight.shape)
