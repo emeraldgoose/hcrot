@@ -1,8 +1,8 @@
 from .module import Module
 from numpy.typing import NDArray
 from typing import Optional, Tuple
-from .layer import Linear
 from hcrot.utils import *
+import numpy as np
 
 class Softmax(Module):
     def __call__(self, x: NDArray) -> NDArray:
@@ -49,9 +49,6 @@ class MultiHeadAttention(Module):
             embed_dim: int,
             num_heads: int,
             dropout: float = 0.,
-            bias: bool = True,
-            add_bias_kv: bool = False,
-            add_zero_attn: bool = False,
             kdim: int = None,
             vdim: int = None,
             batch_first: bool = False
@@ -66,14 +63,29 @@ class MultiHeadAttention(Module):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.dropout = float(dropout)
-        self.add_bias_kv = add_bias_kv
-        self.add_zero_attn = add_zero_attn
         self.batch_first = batch_first
-        # temporary
         self.kdim = kdim if kdim is not None else embed_dim
         self.vdim = vdim if vdim is not None else embed_dim
-        self._qkv_same_embed_dim = self.kdim == embed_dim and self.vdim == embed_dim
         self.head_dim = self.embed_dim // num_heads
+
+        self.q_proj_weight = np.zeros((self.embed_dim, self.embed_dim))
+        self.k_proj_weight = np.zeros((self.embed_dim, self.kdim))
+        self.v_proj_weight = np.zeros((self.embed_dim, self.vdim))
+        self.q_proj_bias = np.zeros((self.embed_dim,))
+        self.k_proj_bias = np.zeros((self.embed_dim,))
+        self.v_proj_bias = np.zeros((self.embed_dim,))
+        self.out_proj_weight = np.zeros((self.embed_dim, self.embed_dim))
+        self.out_proj_bias = np.zeros((1, self.embed_dim))
+        self.param_names = ['q_proj_weight', 'k_proj_weight', 'v_proj_weight', 'q_proj_bias', 'k_proj_bias', 'v_proj_bias', 'out_proj_weight', 'out_proj_bias']
+        self.reset_paramters()
+
+    def reset_paramters(self) -> None:
+        setattr(self, 'q_proj_weight', xavier_uniform_(self.q_proj_weight))
+        setattr(self, 'k_proj_weight', xavier_uniform_(self.k_proj_weight))
+        setattr(self, 'v_proj_weight', xavier_uniform_(self.v_proj_weight))
+        sqrt_k = 1 / np.sqrt(1 / self.embed_dim)
+        setattr(self, 'out_proj_weight', np.random.uniform(-sqrt_k, sqrt_k, self.out_proj_weight.shape))
+        setattr(self, 'out_proj_bias', np.random.uniform(-sqrt_k, sqrt_k, self.out_proj_bias.shape))
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
@@ -83,49 +95,49 @@ class MultiHeadAttention(Module):
             query: NDArray,
             key: NDArray,
             value: NDArray,
-            key_padding_mask: Optional[NDArray] = None,
-            need_weights: bool = True,
-            attn_mask: Optional[NDArray] = None,
-            average_attn_weights: bool = True,
-            is_casual: bool = False
-            ) -> Tuple[NDArray, Optional[NDArray]]:
-        self.in_proj_weight = np.zeros((self.embed_dim * 3, self.embed_dim))
-        self.in_proj_bias = np.zeros((self.embed_dim * 3,))
-        self.out_proj = Linear(in_features=self.embed_dim, out_features=self.embed_dim)
+            attn_mask: Optional[NDArray] = None
+            ) -> NDArray:
+        if self.batch_first:
+            pass
 
-        heads = self.scaled_dot_product_attention(query, key, value)
+        # variables
+        tgt_len, bsz, embed_dim = query.shape
+        src_len, _, _ = key.shape
 
-        attn_output = self.out_proj(None)
-        attn_output_weights = None
+        # linear(query), linear(key), linear(value)
+        q = query @ self.q_proj_weight.T + self.q_proj_bias
+        k = key @ self.k_proj_weight.T + self.k_proj_bias
+        v = value @ self.v_proj_weight.T + self.v_proj_bias
 
-        if not need_weights:
-            return attn_output
+        # transpose batch_size, length
+        q = q.reshape(tgt_len, bsz * self.num_heads, self.head_dim).transpose((1,0,2))
+        k = k.reshape(k.shape[0], bsz * self.num_heads, self.head_dim).transpose((1,0,2))
+        v = v.reshape(v.shape[0], bsz * self.num_heads, self.head_dim).transpose((1,0,2))
         
-        return attn_output, attn_output_weights
+        # reshape (bsz, num_heads, length, head_dim)
+        q = q.reshape(bsz, self.num_heads, tgt_len, self.head_dim)
+        k = k.reshape(bsz, self.num_heads, src_len, self.head_dim)
+        v = v.reshape(bsz, self.num_heads, src_len, self.head_dim)
 
-    def backward(self, dx) -> Tuple[NDArray, NDArray]:
-        pass
+        # calculate attention score
+        attn_output = self.scaled_dot_product_attention(q, k, v, attn_mask)
+        attn_output = attn_output.transpose(2,0,1,3).reshape(bsz * tgt_len, embed_dim)
+        attn_output = attn_output @ self.out_proj_weight.T + self.out_proj_bias
+        attn_output = attn_output.reshape(tgt_len, bsz, attn_output.shape[1])
+
+        return attn_output
+
+    def backward(self, dx) -> Tuple[Mapping[str, NDArray], Mapping[str, NDArray]]:
+        raise NotImplementedError
     
-    def scaled_dot_product_attention(self, query: NDArray, key: NDArray, value: NDArray) -> NDArray:
-        """
-        ### Parameters
-        Query (N, ..., L, E)
-        Key (N, ..., S, E)
-        Value (N, ..., S, Ev)
-        
-        ### Sizes
-        N : batch_size
-        L : source sequence length
-        S : target sequence length
-        E : embedding size of the query and key
-        Ev : embedding size of the value
-
-        ### return
-            attention output (N, ..., L, Ev)
-        """
-        new_shape = [v-1 for v in key.shape[:2] + key.shape[::-1][:2]]
-        attn_weight = softmax((query @ key.transpose(new_shape)) / np.sqrt(query.shape[-1]))
+    @staticmethod
+    def scaled_dot_product_attention(query: NDArray, key: NDArray, value: NDArray, attn_mask: NDArray[np.bool_] = None) -> NDArray:
+        scaled_factor = 1 / math.sqrt(query.shape[-1])
+        attn_weight = query @ key.swapaxes(-1,-2) * scaled_factor
+        if attn_mask is not None:
+            attn_weight = masked_fill(attn_weight, attn_mask, -1e9)
+        attn_weight = softmax(x=attn_weight, dim=-1)
         return attn_weight @ value
-
-    def scaled_dot_product_attention_backward(self, dz: NDArray) -> NDArray:
-        pass
+    
+    def scaled_dot_product_attention_backward(self, dx: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+        raise NotImplementedError
