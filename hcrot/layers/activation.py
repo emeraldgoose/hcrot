@@ -8,8 +8,8 @@ class Softmax(Module):
     def __init__(self, dim: int = -1) -> None:
         self.dim = dim
     
-    def __call__(self, x: NDArray, dim: int = -1) -> NDArray:
-        return self.forward(x, dim)
+    def __call__(self, x: NDArray) -> NDArray:
+        return self.forward(x)
 
     def forward(self, x: NDArray) -> NDArray:
         e_x = np.exp(x - np.max(x, axis=self.dim, keepdims=True))
