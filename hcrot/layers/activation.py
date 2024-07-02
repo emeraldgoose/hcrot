@@ -5,20 +5,42 @@ from hcrot.utils import *
 import numpy as np
 
 class Softmax(Module):
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
+    def __init__(self, dim: int = -1) -> None:
+        self.dim = dim
+    
+    def __call__(self, x: NDArray, dim: int = -1) -> NDArray:
+        return self.forward(x, dim)
 
     def forward(self, x: NDArray) -> NDArray:
-        if x.ndim >= 3:
-            raise ValueError('not possible backward() for dimension >= 3')
-        self.X = x
-        self.sum_ = np.sum(np.exp(x),axis=1)
-        return softmax(x)
+        e_x = np.exp(x - np.max(x, axis=self.dim, keepdims=True))
+        self.s = e_x / np.sum(e_x, axis=self.dim, keepdims=True)
+        return self.s
     
     def backward(self, dz: NDArray) -> NDArray:
-        s = softmax(self.X)
-        j = np.einsum('ij,jk->ijk', s, np.eye(s.shape[-1])) - np.einsum('ij,ik->ijk', s, s)
-        return np.einsum('ijk,ij->ik', j, dz)
+        # powered by gpt-4o
+        dx = np.zeros_like(dz)
+        
+        # Move the axis of interest to be the last axis
+        transposed_axes = list(range(dz.ndim))
+        transposed_axes[self.dim], transposed_axes[-1] = transposed_axes[-1], transposed_axes[self.dim]
+        transposed_dout = np.transpose(dz, transposed_axes)
+        transposed_softmax = np.transpose(self.s, transposed_axes)
+        transposed_dx = np.transpose(dx, transposed_axes)
+        
+        # Get the shape of the transposed arrays
+        shape = transposed_dout.shape
+        batch_size = shape[:-1]
+        
+        # Compute the gradient for the softmax
+        for idx in np.ndindex(batch_size):
+            s = transposed_softmax[idx].reshape(-1, 1)
+            jacobian = np.diagflat(s) - np.dot(s, s.T)
+            transposed_dx[idx] = np.dot(jacobian, transposed_dout[idx])
+        
+        # Transpose back to the original axes
+        dx = np.transpose(transposed_dx, transposed_axes)
+        
+        return dx
 
 class Sigmoid(Module):
     def __call__(self, x: NDArray) -> NDArray:
@@ -122,13 +144,58 @@ class MultiHeadAttention(Module):
         # calculate attention score
         attn_output = self.scaled_dot_product_attention(q, k, v, attn_mask)
         attn_output = attn_output.transpose(2,0,1,3).reshape(bsz * tgt_len, embed_dim)
+        
+        # dropout
+        
         attn_output = attn_output @ self.out_proj_weight.T + self.out_proj_bias
         attn_output = attn_output.reshape(tgt_len, bsz, attn_output.shape[1])
 
         return attn_output
 
-    def backward(self, dx) -> Tuple[Mapping[str, NDArray], Mapping[str, NDArray]]:
-        raise NotImplementedError
+    def backward(self, dx: NDArray) -> Tuple[Mapping[str, NDArray], Mapping[str, NDArray]]:
+        """
+        역전파 메소드 구현. 이 메소드는 입력된 그래디언트에 대해 각 파라미터의 그래디언트를 계산합니다.
+        """
+        # 역전파를 위한 준비: 각 행렬의 전치 및 재배열
+        d_query, d_key, d_value = self.scaled_dot_product_attention_backward(dx)
+
+        # 각 투영 매트릭스에 대한 그래디언트 계산
+        grad_q_proj_weight = d_query.T @ self.q
+        grad_k_proj_weight = d_key.T @ self.k
+        grad_v_proj_weight = d_value.T @ self.v
+
+        # 바이어스에 대한 그래디언트 계산
+        grad_q_proj_bias = np.sum(d_query, axis=0)
+        grad_k_proj_bias = np.sum(d_key, axis=0)
+        grad_v_proj_bias = np.sum(d_value, axis=0)
+
+        # 출력 투영 매트릭스에 대한 그래디언트 계산
+        grad_out_proj_weight = dx.T @ self.attn_output
+        grad_out_proj_bias = np.sum(dx, axis=0)
+
+        # 그래디언트 딕��너리 생성
+        grads = {}
+        param_names = ['q_proj_weight', 'k_proj_weight', 'v_proj_weight', 'q_proj_bias', 'k_proj_bias', 'v_proj_bias', 'out_proj_weight', 'out_proj_bias']
+        grad_values = [grad_q_proj_weight, grad_k_proj_weight, grad_v_proj_weight, grad_q_proj_bias, grad_k_proj_bias, grad_v_proj_bias, grad_out_proj_weight, grad_out_proj_bias]
+
+        for name, value in zip(param_names, grad_values):
+            setattr(grads, name, value)
+
+        return grads, {}
+
+    def scaled_dot_product_attention_backward(self, dx: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+        """
+        스케일된 점곱 주의 메커니즘의 역전파를 계산합니다.
+        """
+        # 주의 가중치와 값에 대한 그래디언트 계산
+        d_attn_weight = dx @ self.v.swapaxes(-1, -2)
+        d_value = self.attn_weight.swapaxes(-1, -2) @ dx
+
+        # 쿼리와 키에 대한 그래디언트 계산
+        d_query = d_attn_weight @ self.k
+        d_key = self.q.swapaxes(-1, -2) @ d_attn_weight
+
+        return d_query, d_key, d_value
     
     @staticmethod
     def scaled_dot_product_attention(query: NDArray, key: NDArray, value: NDArray, attn_mask: NDArray[np.bool_] = None) -> NDArray:
