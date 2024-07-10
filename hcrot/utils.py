@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Tuple, Union
+from typing import Any, Mapping, Tuple, Union, Optional
 from numpy.typing import NDArray
 import numpy as np
 import pickle, os, math
@@ -11,9 +11,14 @@ def one_hot_encoding(x: NDArray, y: NDArray) -> NDArray:
 def sigmoid(x: NDArray) -> NDArray:
     return 1 / (1 + np.exp(-x))
 
-def softmax(x: NDArray, dim: int):
+def softmax(x: NDArray, dim: Optional[int] = None):
+    if dim == None:
+        dim = _get_softmax_axis(x.ndim)
     sum_ = np.sum(np.exp(x), axis=dim)
     return np.exp(x) / np.expand_dims(sum_, axis=dim)
+
+def _get_softmax_axis(ndim: int) -> int:
+    return 0 if ndim in [0,1,3] else 1
 
 def convolve2d(a: NDArray, f: NDArray) -> NDArray:
     # Ref: https://stackoverflow.com/a/43087771
@@ -36,8 +41,7 @@ def load(path: str) -> Mapping[str, NDArray]:
         return pickle.load(f)
     
 def masked_fill(x: NDArray, mask: NDArray[np.bool_], fill_value: Union[int, float]) -> NDArray:
-    masked_array = np.ma.array(x, mask)
-    masked_array = masked_array.filled(fill_value=fill_value)
+    masked_array = np.ma.array(x, mask=np.logical_not(mask)).filled(fill_value=fill_value)
     return masked_array
 
 def _calculated_fan_in_and_fan_out(weight: NDArray) -> Tuple[int, int]:
