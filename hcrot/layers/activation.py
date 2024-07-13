@@ -70,7 +70,6 @@ class MultiHeadAttention(Module):
             self,
             embed_dim: int,
             num_heads: int,
-            dropout: float = 0.,
             kdim: int = None,
             vdim: int = None,
             batch_first: bool = False
@@ -78,17 +77,14 @@ class MultiHeadAttention(Module):
         super().__init__()
         if embed_dim % num_heads != 0:
             raise ValueError('embed_dim must be divisible by num_heads')
-        
-        if not (0 <= dropout <= 1):
-            raise ValueError('dropout is range over [0,1]')
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.dropout = float(dropout)
         self.batch_first = batch_first
         self.kdim = kdim if kdim is not None else embed_dim
         self.vdim = vdim if vdim is not None else embed_dim
         self.head_dim = self.embed_dim // num_heads
+        self.softmax = Softmax()
 
         self.q_proj_weight = np.zeros((self.embed_dim, self.embed_dim))
         self.k_proj_weight = np.zeros((self.embed_dim, self.kdim))
@@ -120,14 +116,18 @@ class MultiHeadAttention(Module):
             attn_mask: Optional[NDArray] = None
             ) -> NDArray:
         if self.batch_first:
-            pass
+            query = query.swapaxes(0,1)
+            key = key.swapaxes(0,1)
+            value = value.swapaxes(0,1)
 
+        self.query = query
+        self.key = key
+        self.value = value
+        
         # variables
         self.attn_mask = attn_mask
         tgt_len, bsz, embed_dim = query.shape
         src_len, _, _ = key.shape
-        
-        self.softmax = Softmax()
 
         # linear(query), linear(key), linear(value)
         q = query @ self.q_proj_weight.T + self.q_proj_bias
@@ -146,29 +146,59 @@ class MultiHeadAttention(Module):
 
         # calculate attention score
         attn_output = self.scaled_dot_product_attention(self.q, self.k, self.v, self.attn_mask)
-        attn_output = attn_output.transpose(2,0,1,3).reshape(bsz * tgt_len, embed_dim)
+        self.attn_output = attn_output
+        self.attn_output_reshaped = attn_output.transpose(2,0,1,3).reshape(bsz * tgt_len, embed_dim)
         
-        attn_output = attn_output @ self.out_proj_weight.T + self.out_proj_bias
-        attn_output = attn_output.reshape(tgt_len, bsz, attn_output.shape[1])
-
+        attn_output = self.attn_output_reshaped @ self.out_proj_weight.T + self.out_proj_bias
+        attn_output = attn_output.reshape(tgt_len, bsz, self.attn_output_reshaped.shape[1])
+        if self.batch_first:
+            attn_output = attn_output.swapaxes(0,1)
+        
         return attn_output
 
-    def backward(self, dx: NDArray) -> Tuple[Mapping[str, NDArray], Mapping[str, NDArray]]:
-        raise NotImplementedError
+    def backward(self, dz: NDArray) -> Tuple[Mapping[str, NDArray], Mapping[str, NDArray]]:
+        if self.batch_first:
+            dz = dz.swapaxes(0,1)
+        
+        dw, db = {}, {}
+        dz = dz.reshape(-1, dz.shape[-1])
+
+        d_out_proj_weight = dz.T @ self.attn_output_reshaped
+        d_out_proj_bias = np.sum(dz,axis=0)
+        dw['out_proj_weight'] = d_out_proj_weight
+        db['out_proj_bias'] = d_out_proj_bias
+        
+        d_attn_output = dz @ self.out_proj_weight
+        d_attn_output = d_attn_output.reshape(self.attn_output.transpose(1,2,0,3).shape).transpose(2,0,1,3)
+        dQ, dK, dV = self.scaled_dot_product_attention_backward(d_attn_output)
+        
+        dQ = dQ.squeeze(axis=1).swapaxes(0,1)
+        dK = dK.squeeze(axis=1).swapaxes(0,1)
+        dV = dV.squeeze(axis=1).swapaxes(0,1)
+        
+        dw['q_proj_weight'] = np.einsum('ijk,ijl->kl',dQ,self.query)
+        dw['k_proj_weight'] = np.einsum('ijk,ijl->kl',dK,self.key)
+        dw['v_proj_weight'] = np.einsum('ijk,ijl->kl',dV,self.value)
+        db['q_proj_bias'] = np.sum(dQ, axis=(0,1))
+        db['k_proj_bias'] = np.sum(dK, axis=(0,1))
+        db['v_proj_bias'] = np.sum(dV, axis=(0,1))
+        
+        return dw, db, dK
+        
     
     def scaled_dot_product_attention(self, query: NDArray, key: NDArray, value: NDArray, attn_mask: NDArray[np.bool_] = None) -> NDArray:
         self.scaled_factor = 1 / math.sqrt(query.shape[-1])
         attn_weight = query @ key.swapaxes(-1,-2) * self.scaled_factor
         if attn_mask is not None:
             attn_weight = masked_fill(attn_weight, attn_mask, float('-inf'))
-        self.attn_weight = self.softmax(x=attn_weight) @ value
-        return self.attn_weight
+        self.attn_weight = self.softmax(x=attn_weight)
+        return self.attn_weight @ value
     
     def scaled_dot_product_attention_backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
         dW = dz @ self.v.swapaxes(-1,-2)
         dA = self.softmax.backward(dW)
         
         dV = self.attn_weight.swapaxes(-1,-2) @ dz
-        dQ = (dA @ self.k) * self.scaled_factor
-        dK = np.einsum('...ik,...ij->...kj', dA, self.q)
+        dQ = (dA @ (self.k * self.scaled_factor))
+        dK = np.einsum('...ik,...ij->...kj', dA, self.q * self.scaled_factor)
         return dQ, dK, dV
