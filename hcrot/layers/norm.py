@@ -28,7 +28,7 @@ class LayerNorm(Module):
             self.bias = None
         self.reset_parameters()
     
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         if self.elementwise_affine:
             setattr(self, 'weight', np.ones_like(self.weight))
             if self.bias is not None:
