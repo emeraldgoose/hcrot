@@ -197,7 +197,7 @@ class MultiHeadAttention(Module):
         db['k_proj_bias'] = np.sum(dK, axis=(0,1))
         db['v_proj_bias'] = np.sum(dV, axis=(0,1))
         
-        return dw, db, dK
+        return dw, db
         
     
     def scaled_dot_product_attention(self, query: NDArray, key: NDArray, value: NDArray, attn_mask: NDArray[np.bool_] = None) -> NDArray:

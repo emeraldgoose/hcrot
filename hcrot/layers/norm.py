@@ -47,7 +47,7 @@ class LayerNorm(Module):
                 normalized += self.bias
         return normalized        
         
-    def backward(self, dz: NDArray) -> NDArray:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
         dims = tuple(range(-len(self.normalized_shape), 0))
         N = np.prod(self.input.shape[1:])
         mean = self.input.mean(axis=dims, keepdims=True)
