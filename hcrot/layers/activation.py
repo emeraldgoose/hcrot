@@ -65,6 +65,20 @@ class ReLU(Module):
     def backward(self, dz: NDArray) -> NDArray:
         return self.mask * dz
 
+class GELU(Module):
+    def __call__(self, *args: np.Any, **kwds: np.Any) -> np.Any:
+        return self.forward(*args, **kwds)
+    
+    def forward(self, x: NDArray) -> NDArray:
+        self.x = x
+        return x * 0.5 * (1 + np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x**3)))
+    
+    def backward(self, dz: NDArray) -> NDArray:
+        tanh_y = np.tanh(np.sqrt(2 / np.pi) * (self.x + 0.044715 * self.x**3))
+        dy_dx = np.sqrt(2 / np.pi) * (1 + 3 * 0.044715 * self.x**2)
+        dx = 0.5 * (1 + tanh_y) + 0.5 * self.x * (1 - tanh_y**2) * dy_dx
+        return dz * dx
+
 class MultiHeadAttention(Module):
     def __init__(
             self,
