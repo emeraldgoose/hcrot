@@ -6,6 +6,7 @@ from .pooling import MaxPool2d, AvgPool2d
 from .rnn import RNN, LSTM
 from .transformer import Transformer, TransformerEncoderLayer, TransformerDecoderLayer, TransformerEncoder, TransformerDecoder
 from .module import Module, Sequential
+from .norm import LayerNorm
 
 __all__ = [
     'Softmax', 'Sigmoid', 'ReLU',
@@ -15,5 +16,6 @@ __all__ = [
     'MaxPool2d', 'AvgPool2d',
     'RNN', 'LSTM',
     'Transformer', 'TransformerEncoderLayer', 'TransformerDecoderLayer', 'TransformerEncoder', 'TransformerDecoder',
-    'Module', 'Sequential'
+    'Module', 'Sequential',
+    'LayerNorm'
 ]
