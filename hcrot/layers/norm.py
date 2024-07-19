@@ -16,16 +16,17 @@ class LayerNorm(Module):
         self.normalized_shape = tuple(normalized_shape)
         self.eps = eps
         self.elementwise_affine = elementwise_affine
+        
         self.param_names = []
+        self.weight = None
+        self.bias = None
         if self.elementwise_affine:
             self.weight = np.zeros(self.normalized_shape)
             self.param_names.append('weight')
             if bias:
                 self.bias = np.zeros(self.normalized_shape)
                 self.param_names.append('bias')
-        else:
-            self.weight = None
-            self.bias = None
+
         self.reset_parameters()
     
     def reset_parameters(self) -> None:
@@ -34,8 +35,8 @@ class LayerNorm(Module):
             if self.bias is not None:
                 setattr(self, 'bias', np.zeros_like(self.bias))
         
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        return self.forward(*args, **kwds)
+    def __call__(self, *args, **kwargs) -> Any:
+        return self.forward(*args, **kwargs)
     
     def forward(self, input: NDArray) -> NDArray:
         self.input = input
@@ -43,7 +44,7 @@ class LayerNorm(Module):
         normalized = (input - input.mean(axis=dims, keepdims=True)) / np.sqrt(input.var(dims, keepdims=True) + self.eps)
         if self.elementwise_affine:
             normalized *= self.weight
-            if self.bias:
+            if self.bias is not None:
                 normalized += self.bias
         return normalized        
         
