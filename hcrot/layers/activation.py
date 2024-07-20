@@ -6,6 +6,7 @@ import numpy as np
 
 class Softmax(Module):
     def __init__(self, dim: int = -1) -> None:
+        super().__init__()
         self.dim = dim
     
     def __call__(self, x: NDArray) -> NDArray:
@@ -41,8 +42,14 @@ class Softmax(Module):
         dx = np.transpose(transposed_dx, transposed_axes)
         
         return dx
+    
+    def extra_repr(self) -> str:
+        return f'dim={self.dim}'
 
 class Sigmoid(Module):
+    def __init__(self) -> None:
+        super().__init__()
+    
     def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
 
@@ -55,6 +62,9 @@ class Sigmoid(Module):
         return x * (1 - x) * dz
 
 class ReLU(Module):
+    def __init__(self) -> None:
+        super().__init__()
+    
     def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
 
@@ -66,8 +76,11 @@ class ReLU(Module):
         return self.mask * dz
 
 class GELU(Module):
-    def __call__(self, *args: np.Any, **kwds: np.Any) -> np.Any:
-        return self.forward(*args, **kwds)
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def __call__(self, *args, **kwargs) -> NDArray:
+        return self.forward(*args, **kwargs)
     
     def forward(self, x: NDArray) -> NDArray:
         self.x = x
@@ -78,6 +91,9 @@ class GELU(Module):
         dy_dx = np.sqrt(2 / np.pi) * (1 + 3 * 0.044715 * self.x**2)
         dx = 0.5 * (1 + tanh_y) + 0.5 * self.x * (1 - tanh_y**2) * dy_dx
         return dz * dx
+    
+    def extra_repr(self) -> str:
+        return 'approximate=tanh'
 
 class MultiHeadAttention(Module):
     def __init__(
@@ -99,6 +115,11 @@ class MultiHeadAttention(Module):
         self.vdim = vdim if vdim is not None else embed_dim
         self.head_dim = self.embed_dim // num_heads
         self.softmax = Softmax()
+        
+        if self.embed_dim == self.kdim and self.embed_dim == self.vdim:
+            self.self_attention = True
+        else:
+            self.self_attention = False
 
         self.q_proj_weight = np.zeros((self.embed_dim, self.embed_dim))
         self.k_proj_weight = np.zeros((self.embed_dim, self.kdim))
@@ -117,7 +138,6 @@ class MultiHeadAttention(Module):
         setattr(self, 'v_proj_weight', xavier_uniform_(self.v_proj_weight))
         sqrt_k = 1 / np.sqrt(1 / self.embed_dim)
         setattr(self, 'out_proj_weight', np.random.uniform(-sqrt_k, sqrt_k, self.out_proj_weight.shape))
-        setattr(self, 'out_proj_bias', np.random.uniform(-sqrt_k, sqrt_k, self.out_proj_bias.shape))
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
@@ -144,24 +164,24 @@ class MultiHeadAttention(Module):
         src_len, _, _ = key.shape
 
         # linear(query), linear(key), linear(value)
-        q = query @ self.q_proj_weight.T + self.q_proj_bias
-        k = key @ self.k_proj_weight.T + self.k_proj_bias
-        v = value @ self.v_proj_weight.T + self.v_proj_bias
-
+        q = query @ self.q_proj_weight.T + self.q_proj_bias # (tgt_len, bsz, embed_dim)
+        k = key @ self.k_proj_weight.T + self.k_proj_bias # (src_len, bsz, kdim)
+        v = value @ self.v_proj_weight.T + self.v_proj_bias # (src_len, bsz, vdim)
+        
         # transpose batch_size, length
-        q = q.reshape(tgt_len, bsz * self.num_heads, self.head_dim).transpose((1,0,2))
-        k = k.reshape(k.shape[0], bsz * self.num_heads, self.head_dim).transpose((1,0,2))
-        v = v.reshape(v.shape[0], bsz * self.num_heads, self.head_dim).transpose((1,0,2))
+        q = q.reshape(tgt_len, bsz * self.num_heads, self.head_dim).transpose((1,0,2)) # (bsz * num_heads, tgt_len, head_dim)
+        k = k.reshape(src_len, bsz * self.num_heads, self.head_dim).transpose((1,0,2)) # (bsz * num_heads, src_len, head_dim)
+        v = v.reshape(src_len, bsz * self.num_heads, self.head_dim).transpose((1,0,2)) # (bsz * num_heads, src_len, head_dim)
         
         # reshape (bsz, num_heads, length, head_dim)
-        self.q = q.reshape(bsz, self.num_heads, tgt_len, self.head_dim)
-        self.k = k.reshape(bsz, self.num_heads, src_len, self.head_dim)
-        self.v = v.reshape(bsz, self.num_heads, src_len, self.head_dim)
-
+        self.q = q.reshape(bsz, self.num_heads, tgt_len, self.head_dim) # (bsz, num_heads, tgt_len, head_dim)
+        self.k = k.reshape(bsz, self.num_heads, src_len, self.head_dim) # (bsz, num_heads, src_len, head_dim)
+        self.v = v.reshape(bsz, self.num_heads, src_len, self.head_dim) # (bsz, num_heads, src_len, head_dim)
+        
         # calculate attention score
-        attn_output = self.scaled_dot_product_attention(self.q, self.k, self.v, self.attn_mask)
-        self.attn_output = attn_output
-        self.attn_output_reshaped = attn_output.transpose(2,0,1,3).reshape(bsz * tgt_len, embed_dim)
+        self.attn_output = self.scaled_dot_product_attention(self.q, self.k, self.v, self.attn_mask)
+        self.attn_output_transposed = self.attn_output.transpose(2,0,1,3)
+        self.attn_output_reshaped = self.attn_output_transposed.reshape(bsz * tgt_len, embed_dim)
         
         attn_output = self.attn_output_reshaped @ self.out_proj_weight.T + self.out_proj_bias
         attn_output = attn_output.reshape(tgt_len, bsz, self.attn_output_reshaped.shape[1])
@@ -170,11 +190,12 @@ class MultiHeadAttention(Module):
         
         return attn_output
 
-    def backward(self, dz: NDArray) -> Tuple[Mapping[str, NDArray], Mapping[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[Union[Tuple[NDArray], NDArray, None], Mapping[str, NDArray], Mapping[str, NDArray]]:
+        dx, dw, db = None, {}, {}
         if self.batch_first:
             dz = dz.swapaxes(0,1)
         
-        dw, db = {}, {}
+        _, bsz, _ = dz.shape
         dz = dz.reshape(-1, dz.shape[-1])
 
         d_out_proj_weight = dz.T @ self.attn_output_reshaped
@@ -183,22 +204,34 @@ class MultiHeadAttention(Module):
         db['out_proj_bias'] = d_out_proj_bias
         
         d_attn_output = dz @ self.out_proj_weight
-        d_attn_output = d_attn_output.reshape(self.attn_output.transpose(1,2,0,3).shape).transpose(2,0,1,3)
+        d_attn_output = d_attn_output.reshape(self.attn_output_transposed.shape).transpose(1,2,0,3)
         dQ, dK, dV = self.scaled_dot_product_attention_backward(d_attn_output)
         
-        dQ = dQ.squeeze(axis=1).swapaxes(0,1)
-        dK = dK.squeeze(axis=1).swapaxes(0,1)
-        dV = dV.squeeze(axis=1).swapaxes(0,1)
+        dQ = dQ.reshape(np.prod(dQ.shape[:2]), *dQ.shape[2:]).swapaxes(0,1) # (tgt_len, bsz * num_heads, head_dim)
+        dK = dK.reshape(np.prod(dK.shape[:2]), *dK.shape[2:]).swapaxes(0,1) # (src_len, bsz * num_heads, head_dim)
+        dV = dV.reshape(np.prod(dV.shape[:2]), *dV.shape[2:]).swapaxes(0,1) # (src_len, bsz * num_heads, head_dim)
         
-        dw['q_proj_weight'] = np.einsum('ijk,ijl->kl',dQ,self.query)
-        dw['k_proj_weight'] = np.einsum('ijk,ijl->kl',dK,self.key)
-        dw['v_proj_weight'] = np.einsum('ijk,ijl->kl',dV,self.value)
+        dQ = dQ.reshape(-1, bsz, self.embed_dim) # (tgt_len, bsz, embed_dim)
+        dK = dK.reshape(-1, bsz, self.embed_dim) # (src_len, bsz, embed_dim)
+        dV = dV.reshape(-1, bsz, self.embed_dim) # (src_len, bsz, embed_dim)
+
+        dw['q_proj_weight'] = np.einsum('ijk,ijl->kl', dQ, self.query)
+        dw['k_proj_weight'] = np.einsum('ijk,ijl->kl', dK, self.key)
+        dw['v_proj_weight'] = np.einsum('ijk,ijl->kl', dV, self.value)
         db['q_proj_bias'] = np.sum(dQ, axis=(0,1))
         db['k_proj_bias'] = np.sum(dK, axis=(0,1))
         db['v_proj_bias'] = np.sum(dV, axis=(0,1))
         
-        return dw, db
+        dx_q = dQ @ self.q_proj_weight
+        dx_k = dK @ self.k_proj_weight
+        dx_v = dV @ self.v_proj_weight
         
+        if self.self_attention:
+            dx = dx_q + dx_k + dx_v
+        else:
+            dx = (dx_q, dx_k, dx_v)
+        
+        return dx, dw, db
     
     def scaled_dot_product_attention(self, query: NDArray, key: NDArray, value: NDArray, attn_mask: NDArray[np.bool_] = None) -> NDArray:
         self.scaled_factor = 1 / math.sqrt(query.shape[-1])
