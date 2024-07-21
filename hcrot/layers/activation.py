@@ -115,11 +115,6 @@ class MultiHeadAttention(Module):
         self.vdim = vdim if vdim is not None else embed_dim
         self.head_dim = self.embed_dim // num_heads
         self.softmax = Softmax()
-        
-        if self.embed_dim == self.kdim and self.embed_dim == self.vdim:
-            self.self_attention = True
-        else:
-            self.self_attention = False
 
         self.q_proj_weight = np.zeros((self.embed_dim, self.embed_dim))
         self.k_proj_weight = np.zeros((self.embed_dim, self.kdim))
@@ -191,7 +186,7 @@ class MultiHeadAttention(Module):
         return attn_output
 
     def backward(self, dz: NDArray) -> Tuple[Union[Tuple[NDArray], NDArray, None], Mapping[str, NDArray], Mapping[str, NDArray]]:
-        dx, dw, db = None, {}, {}
+        dw, db = {}, {}
         if self.batch_first:
             dz = dz.swapaxes(0,1)
         
@@ -226,12 +221,12 @@ class MultiHeadAttention(Module):
         dx_k = dK @ self.k_proj_weight
         dx_v = dV @ self.v_proj_weight
         
-        if self.self_attention:
-            dx = dx_q + dx_k + dx_v
-        else:
-            dx = (dx_q, dx_k, dx_v)
+        if self.batch_first:
+            dx_q = dx_q.swapaxes(0,1)
+            dx_k = dx_k.swapaxes(0,1)
+            dx_v = dx_v.swapaxes(0,1)
         
-        return dx, dw, db
+        return (dx_q, dx_k, dx_v), dw, db
     
     def scaled_dot_product_attention(self, query: NDArray, key: NDArray, value: NDArray, attn_mask: NDArray[np.bool_] = None) -> NDArray:
         self.scaled_factor = 1 / math.sqrt(query.shape[-1])
