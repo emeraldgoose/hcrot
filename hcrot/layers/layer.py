@@ -28,7 +28,7 @@ class Linear(Module):
         return mat + self.bias
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
-        dw = np.dot(self.X.T, dz)
+        dw = np.dot(self.X.swapaxes(-1,-2), dz)
         db = np.sum(dz, axis=0) / len(dz)
         dx = np.dot(dz, self.weight.T)
         return dx, dw, db
