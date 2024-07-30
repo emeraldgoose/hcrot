@@ -1,5 +1,6 @@
+from itertools import chain
+from typing import Union, TypeVar, Mapping, Optional, Iterable, Iterator
 from numpy.typing import NDArray
-from typing import Union, TypeVar, Mapping
 from collections import OrderedDict
 
 T = TypeVar("T", bound="Module")
@@ -29,6 +30,13 @@ class Module:
         if isinstance(self, Sequential):
             return self[target[0]]
         
+        if isinstance(self, ModuleList):
+            module: T = self[int(target[0])]
+            target = target[1:]
+            if len(target) > 0:
+                return module.get_submodule('.'.join(target))
+            return module
+        
         module = self.__getattribute__(target[0])
         
         if len(target) > 1:
@@ -40,9 +48,19 @@ class Module:
         self._modules[name] = module
 
     def add_parameters(self, prefix: str, module: T) -> None:
-        if module._get_name() in ('RNN', 'LSTM'):
+        if module._get_name() in ('RNN', 'LSTM', 'MultiHeadAttention'):
             for param in module.param_names:
                 self.parameters[f'{prefix}.{param}'] = getattr(module, param)
+        elif module._get_name() in ('ModuleList'):
+            for i, mod in enumerate(module):
+                for param in mod.parameters.keys():
+                    mod_name, param_name = param.split('.')
+                    self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod.get_submodule(mod_name), param_name)
+        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder','Transformer'):
+            for param in module.parameters.keys():
+                i = param.rindex('.')
+                mod_name, param_name = param[:i], param[i+1:]
+                self.parameters[f'{prefix}.{mod_name}.{param_name}'] = getattr(module.get_submodule(mod_name), param_name)
         else:
             if hasattr(module, 'weight'):
                 self.parameters[f'{prefix}.weight'] = getattr(module, 'weight')
@@ -90,6 +108,7 @@ class Module:
         return ''
 
     def __repr__(self) -> str:
+        # torch.nn.Module
         extra_lines = []
         extra_repr = self.extra_repr()
         if extra_repr:
@@ -129,3 +148,67 @@ class Sequential(Module):
         for module in self.args:
             x = module(x)
         return x
+    
+class ModuleList(Module):
+    def __init__(self, modules: Optional[Iterable[Module]] = None) -> None:
+        super().__init__()
+        if modules is not None:
+            self += modules
+
+    def __len__(self) -> int:
+        return len(self._modules)
+
+    def __iter__(self) -> Iterator[Module]:
+        return iter(self._modules.values())
+
+    def __getitem__(self, idx: int):
+        if idx < 0:
+            idx += len(self)
+        return self._modules[str(idx)]
+
+    def __add__(self, other: Iterable[Module]):
+        combined = ModuleList()
+        for i, module in enumerate(chain(self, other)):
+            combined.add_module(str(i), module)
+        return combined
+    
+    def __iadd__(self, modules: Iterable[Module]):
+        return self.extend(modules)
+    
+    def extend(self, modules: Iterable[Module]):
+        offset = len(self)
+        for i, module in enumerate(modules):
+            self.add_module(str(offset + i), module)
+        return self
+    
+    def __repr__(self) -> str:
+        # torch.nn.ModuleList
+        list_of_reprs = [repr(item) for item in self]
+        if not len(list_of_reprs):
+            return self._get_name() + '()'
+        
+        start_end_indices = [[0, 0]]
+        repeated_blocks = [list_of_reprs[0]]
+        for i, r in enumerate(list_of_reprs[1:], 1):
+            if r == repeated_blocks[-1]:
+                start_end_indices[-1][1] += 1
+                continue
+
+            start_end_indices.append([i, i])
+            repeated_blocks.append(r)
+        
+        lines = []
+        main_str = self._get_name() + '('
+        for (start_id, end_id), block_repr in zip(start_end_indices, repeated_blocks):
+            local_repr = f"({start_id}): {block_repr}"
+
+            if start_id != end_id:
+                n = end_id - start_id + 1
+                local_repr = f"({start_id}-{end_id}): {n} x {block_repr}"
+
+            local_repr = '\n'.join([('  ') + line if i>0 else line for i, line in  enumerate(local_repr.split('\n'))])
+            lines.append(local_repr)
+
+        main_str += '\n  ' + '\n  '.join(lines) + '\n'
+        main_str += ')'
+        return main_str
