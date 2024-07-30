@@ -3,7 +3,7 @@ from hcrot.utils import *
 
 class MSELoss:
     def __call__(self, y_pred: NDArray, y_true: NDArray) -> NDArray:
-        if y_true.dtype == np.float_:
+        if y_true.dtype == np.float64:
             raise ValueError('expected scalar type Long but found float')
         return self.forward(y_pred, y_true)
 
@@ -19,7 +19,7 @@ class MSELoss:
 
 class CrossEntropyLoss:
     def __call__(self, y_pred: NDArray, y_true: NDArray) -> NDArray:
-        if y_true.dtype == np.float_:
+        if y_true.dtype == np.float64:
             raise ValueError('expected scalar type Long but found float')
         return self.forward(y_pred, y_true)
 
