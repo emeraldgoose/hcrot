@@ -24,13 +24,15 @@ class Linear(Module):
 
     def forward(self, x: NDArray) -> NDArray:
         self.X = x
-        mat = np.dot(x, self.weight)
+        mat = np.matmul(x, self.weight)
         return mat + self.bias
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
-        dw = np.dot(self.X.swapaxes(-1,-2), dz)
-        db = np.sum(dz, axis=0) / len(dz)
-        dx = np.dot(dz, self.weight.T)
+        dw = np.matmul(self.X.swapaxes(-1,-2), dz)
+        if dw.ndim == 3:
+            dw = np.sum(dw, axis=0)
+        db = np.sum(dz, axis=tuple(np.arange(len(dz.shape))[:-1]))
+        dx = np.matmul(dz, self.weight.swapaxes(-1,-2))
         return dx, dw, db
 
     def extra_repr(self) -> str:
@@ -59,7 +61,7 @@ class Flatten(Module):
             return x
         
         shape = list(x.shape)
-        new_size = shape[:self.start_dim] + [np.product(shape[self.start_dim:self.end_dim+1])] + shape[self.end_dim+1:]
+        new_size = shape[:self.start_dim] + [np.prod(shape[self.start_dim:self.end_dim+1])] + shape[self.end_dim+1:]
         return np.reshape(x, new_size)
 
     def backward(self, dz: NDArray) -> NDArray:
@@ -76,7 +78,6 @@ class Embedding(Module):
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.padding_idx = padding_idx
-        self.X = None
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -84,15 +85,16 @@ class Embedding(Module):
         if self.padding_idx is not None:
             self.weight[self.padding_idx].fill(0)
 
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
     def forward(self, x: NDArray) -> NDArray:
-        self.X = x
+        self.x = x
         return self.weight[x]
 
     def backward(self, dz: NDArray) -> NDArray:
-        dw = dz[self.X]
+        dw = np.zeros((self.num_embeddings, self.embedding_dim))
+        dw[self.x] = dz
         return dw
 
     def extra_repr(self) -> str:
@@ -126,3 +128,6 @@ class Dropout(Module):
 
     def backward(self, dz: NDArray) -> NDArray:
         return dz * self.mask / self.scale_factor
+
+    def extra_repr(self) -> str:
+        return 'p={}'.format(self.p)
