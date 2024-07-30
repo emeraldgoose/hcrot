@@ -21,6 +21,14 @@ class Optimizer:
                 for k, v in dw.items():
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
                     module.__setattr__(k, new_weight)
+            elif isinstance(module, Transformer):
+                dz, dw, db = module.backward(dz)
+                dw.update(db)
+                for k, v in dw.items():
+                    i = k.rindex('.')
+                    module_name, param = k[:i], k[i+1:]
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
+                    module.get_submodule(module_name).__setattr__(param, new_weight)
             elif isinstance(module, Embedding):
                 dw = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
@@ -71,6 +79,8 @@ class Adam(Optimizer):
         self.v[id] = self.betas[1] * self.v[id] + (1 - self.betas[1]) * (grad ** 2)
         m_hat = self.m[id] / (1 - self._pow(self.betas[0], self.t))
         v_hat = self.v[id] / (1 - self._pow(self.betas[1], self.t))
+        m_hat = m_hat.astype(np.float32)
+        v_hat = v_hat.astype(np.float32)
         return weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
 
     def _pow(self, beta: float, t: int) -> float:
