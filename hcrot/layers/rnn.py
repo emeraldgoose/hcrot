@@ -1,5 +1,5 @@
 from numpy.typing import NDArray
-from typing import Tuple, Mapping
+from typing import Tuple, Mapping, Optional
 import numpy as np
 
 from .module import Module
@@ -46,7 +46,7 @@ class RNNBase(Module):
             setattr(self, key, np.random.uniform(-sqrt_k, sqrt_k, getattr(self,key).shape))
 
     def __call__(self, *args, **kwargs):
-        pass
+        return self.forward(*args, **kwargs)
     
     def forward(self, x: NDArray):
         pass
@@ -85,10 +85,7 @@ class RNN(RNNBase):
         self.X = []
         self.relu_mask = []
 
-    def __call__(self, x: NDArray, h_0: NDArray = None):
-        return self.forward(x, h_0)
-
-    def forward(self, x: NDArray, h_0: NDArray = None) -> Tuple[NDArray, NDArray]:
+    def forward(self, x: NDArray, h_0: Optional[NDArray] = None) -> Tuple[NDArray, NDArray]:
         """RNN forward process"""
         self.X = []
         if self.batch_first:
@@ -98,7 +95,7 @@ class RNN(RNNBase):
         if self.nonlinearity == 'relu':
             self.relu_mask = np.zeros((self.num_layers, T, B, H))
         
-        if h_0 == None:
+        if h_0 is None:
             h_0 = np.zeros((self.num_layers, B, H))
 
         self.h = [{-1:h_0[i]} for i in range(self.num_layers)] # hidden_state
@@ -186,19 +183,16 @@ class LSTM(RNNBase):
             )
         self.X = []
 
-    def __call__(self, x: NDArray, h0: NDArray = None, c0: NDArray = None):
-        return self.forward(x, h0, c0)
-
-    def forward(self, x: NDArray, h_0: NDArray = None, c_0: NDArray = None) -> Tuple[NDArray, NDArray, NDArray]:
+    def forward(self, x: NDArray, h_0: Optional[NDArray] = None, c_0: Optional[NDArray] = None) -> Tuple[NDArray, NDArray, NDArray]:
         """LSTM forward process"""
         self.X = []
         if self.batch_first:
             x = np.transpose(x, (1,0,2))
         (T, B, _), H = x.shape, self.hidden_size
 
-        if h_0 == None:
+        if h_0 is None:
             h_0 = np.zeros((self.num_layers, B, H))
-        if c_0 == None:
+        if c_0 is None:
             c_0 = np.zeros((self.num_layers, B, H))
         
         self.h = [{-1:h_0[i]} for i in range(self.num_layers)] # hidden_state
