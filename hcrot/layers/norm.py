@@ -55,7 +55,6 @@ class LayerNorm(Module):
         mean = np.mean(x_flat, axis=-1, keepdims=True)
         variance = np.var(x_flat, axis=-1, keepdims=True)
         std = np.sqrt(variance + self.eps)
-        # x_hat = (self.input - mean) / std
         
         x_hat = (x_flat - mean) / std
         
