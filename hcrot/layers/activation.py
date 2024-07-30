@@ -13,7 +13,9 @@ class Softmax(Module):
         return self.forward(x)
 
     def forward(self, x: NDArray) -> NDArray:
+        eps = 1e-8
         e_x = np.exp(x - np.max(x, axis=self.dim, keepdims=True))
+        e_x = np.nan_to_num(e_x, 0.) + eps
         self.output = e_x / np.sum(e_x, axis=self.dim, keepdims=True)
         return self.output
     
@@ -131,7 +133,7 @@ class MultiHeadAttention(Module):
         setattr(self, 'q_proj_weight', xavier_uniform_(self.q_proj_weight))
         setattr(self, 'k_proj_weight', xavier_uniform_(self.k_proj_weight))
         setattr(self, 'v_proj_weight', xavier_uniform_(self.v_proj_weight))
-        sqrt_k = 1 / np.sqrt(1 / self.embed_dim)
+        sqrt_k = np.sqrt(1 / self.embed_dim)
         setattr(self, 'out_proj_weight', np.random.uniform(-sqrt_k, sqrt_k, self.out_proj_weight.shape))
 
     def __call__(self, *args, **kwargs):
