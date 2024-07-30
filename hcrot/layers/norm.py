@@ -49,20 +49,26 @@ class LayerNorm(Module):
         return normalized        
         
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
-        dims = tuple(range(-len(self.normalized_shape), 0))
-        N = np.prod(self.input.shape[1:])
-        mean = self.input.mean(axis=dims, keepdims=True)
-        variance = self.input.var(axis=dims, keepdims=True)
+        E = dz.shape[-1]
+        x_flat = self.input.reshape(-1, E)
+        
+        mean = np.mean(x_flat, axis=-1, keepdims=True)
+        variance = np.var(x_flat, axis=-1, keepdims=True)
         std = np.sqrt(variance + self.eps)
-        x_hat = (self.input - mean) / std
+        # x_hat = (self.input - mean) / std
+        
+        x_hat = (x_flat - mean) / std
         
         grad_xhat = dz * self.weight
-        grad_var = np.sum(grad_xhat * (self.input - mean) * -0.5 * (std ** (-3)), axis=dims, keepdims=True)
-        grad_mean = np.sum(grad_xhat * -1 / std, axis=dims, keepdims=True) + grad_var * np.sum(-2 * (self.input - mean), axis=dims, keepdims=True)
+        grad_xhat_flat = grad_xhat.reshape(-1, E)
+        grad_var = np.sum(grad_xhat_flat * (x_flat - mean) * -0.5 * (std ** -3), axis=-1, keepdims=True)
+        grad_mean = np.sum(grad_xhat_flat * -1 / std, axis=-1, keepdims=True) + grad_var * np.sum(-2 * (x_flat - mean), axis=-1, keepdims=True)
         
-        dx = grad_xhat / std + grad_var * 2 * (self.input - mean) / N + grad_mean / N
-        dw = np.sum(dz * x_hat, axis=0)
-        db = np.sum(dz, axis=0)
+        dx_flat = grad_xhat_flat / std + grad_var * 2 * (x_flat - mean) / E + grad_mean / E
+        dx = dx_flat.reshape(self.input.shape)
+        
+        dw = np.sum(dz * x_hat.reshape(self.input.shape), axis=(0,1))
+        db = np.sum(dz, axis=(0,1))
         
         return dx, dw, db
         
