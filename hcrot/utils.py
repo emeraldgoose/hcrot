@@ -41,6 +41,8 @@ def load(path: str) -> Mapping[str, NDArray]:
         return pickle.load(f)
     
 def masked_fill(x: NDArray, mask: NDArray[np.bool_], fill_value: Union[int, float]) -> NDArray:
+    if x.ndim != mask.ndim:
+        mask = np.tile(mask, reps=(*x.shape[:-2],1,1))
     masked_array = np.ma.array(x, mask=np.logical_not(mask)).filled(fill_value=fill_value)
     return masked_array
 
