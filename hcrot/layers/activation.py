@@ -102,8 +102,8 @@ class MultiHeadAttention(Module):
             self,
             embed_dim: int,
             num_heads: int,
-            kdim: int = None,
-            vdim: int = None,
+            kdim: Optional[int] = None,
+            vdim: Optional[int] = None,
             batch_first: bool = False
             ) -> None:
         super().__init__()
