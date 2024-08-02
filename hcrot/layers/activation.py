@@ -187,7 +187,7 @@ class MultiHeadAttention(Module):
         
         return attn_output
 
-    def backward(self, dz: NDArray) -> Tuple[Union[Tuple[NDArray], NDArray, None], Mapping[str, NDArray], Mapping[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[Tuple[NDArray], Mapping[str, NDArray], Mapping[str, NDArray]]:
         dw, db = {}, {}
         if self.batch_first:
             dz = dz.swapaxes(0,1)
