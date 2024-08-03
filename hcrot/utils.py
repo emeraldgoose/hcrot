@@ -1,7 +1,7 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, Tuple, Union, Optional
 from numpy.typing import NDArray
 import numpy as np
-import pickle, os
+import pickle, os, math
 
 def one_hot_encoding(x: NDArray, y: NDArray) -> NDArray:
     ret = np.zeros_like(x)
@@ -11,11 +11,11 @@ def one_hot_encoding(x: NDArray, y: NDArray) -> NDArray:
 def sigmoid(x: NDArray) -> NDArray:
     return 1 / (1 + np.exp(-x))
 
-def softmax(x: NDArray) -> NDArray:
-    axis = _get_softmax_axis(x.ndim)
-    sum_ = np.sum(np.exp(x), axis=axis)
-    sum_ += np.full(sum_.shape, 1e-7)
-    return np.array(np.exp(x).T / sum_).T
+def softmax(x: NDArray, dim: Optional[int] = None):
+    if dim == None:
+        dim = _get_softmax_axis(x.ndim)
+    sum_ = np.sum(np.exp(x), axis=dim)
+    return np.exp(x) / np.expand_dims(sum_, axis=dim)
 
 def _get_softmax_axis(ndim: int) -> int:
     return 0 if ndim in [0,1,3] else 1
@@ -39,3 +39,26 @@ def load(path: str) -> Mapping[str, NDArray]:
     
     with open(path, mode='rb') as f:
         return pickle.load(f)
+    
+def masked_fill(x: NDArray, mask: NDArray[np.bool_], fill_value: Union[int, float]) -> NDArray:
+    if x.ndim != mask.ndim:
+        mask = np.tile(mask, reps=(*x.shape[:-2],1,1))
+    masked_array = np.ma.array(x, mask=np.logical_not(mask)).filled(fill_value=fill_value)
+    return masked_array
+
+def _calculated_fan_in_and_fan_out(weight: NDArray) -> Tuple[int, int]:
+    if weight.ndim < 2:
+        raise ValueError('computed for weight dimension > 1')
+    num_input_fmaps, num_output_fmaps = weight.shape[:2]
+    receptive_field_size = 1
+    for s in weight.shape[2:]:
+        receptive_field_size *= s
+    fan_in = num_input_fmaps * receptive_field_size
+    fan_out = num_output_fmaps * receptive_field_size
+    return fan_in, fan_out
+
+def xavier_uniform_(weight: NDArray, gain: float = 1.0) -> NDArray:
+    fan_in, fan_out = _calculated_fan_in_and_fan_out(weight)
+    std = gain * math.sqrt(2.0 / float(fan_in + fan_out))
+    a = math.sqrt(3.0) * std
+    return np.random.uniform(-a, a, weight.shape)

@@ -5,16 +5,17 @@ import numpy as np
 
 class Dataloader:
     def __init__(self, X: NDArray, y: NDArray, batch_size: int = 1, shuffle: bool = True) -> None:
-        self.idx = np.array([i for i in range(len(X))])
-        self.data, self.label = X, y
+        self.idx = np.arange(len(X))
+        self.data, self.label = np.array(X), np.array(y)
         self.batch_size = batch_size
         if shuffle:
             random.shuffle(self.idx)
+        self.chunk = np.array_split(self.idx, len(X) // batch_size, axis=0)
 
     def __len__(self) -> int:
         return len(self.idx) // self.batch_size
 
     def __getitem__(self, i: int) -> Tuple[NDArray, NDArray]:
-        data = [self.data[i * self.batch_size + j] for j in range(self.batch_size)]
-        labels = [self.label[i * self.batch_size + j] for j in range(self.batch_size)]
+        data = self.data[self.chunk[i]]
+        labels = self.label[self.chunk[i]]
         return np.array(data), np.array(labels)
