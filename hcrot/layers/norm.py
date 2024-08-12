@@ -61,7 +61,7 @@ class LayerNorm(Module):
         grad_xhat = dz * self.weight
         grad_xhat_flat = grad_xhat.reshape(-1, E)
         grad_var = np.sum(grad_xhat_flat * (x_flat - mean) * -0.5 * (std ** -3), axis=-1, keepdims=True)
-        grad_mean = np.sum(grad_xhat_flat * -1 / std, axis=-1, keepdims=True) + grad_var * np.sum(-2 * (x_flat - mean), axis=-1, keepdims=True)
+        grad_mean = np.sum(grad_xhat_flat * -1 / std, axis=-1, keepdims=True) + grad_var * np.mean(-2 * (x_flat - mean), axis=-1, keepdims=True)
         
         dx_flat = grad_xhat_flat / std + grad_var * 2 * (x_flat - mean) / E + grad_mean / E
         dx = dx_flat.reshape(self.input.shape)
