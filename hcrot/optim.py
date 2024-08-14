@@ -22,7 +22,7 @@ class Optimizer:
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
                     module.__setattr__(k, new_weight)
             elif isinstance(module, Transformer):
-                dz, dw, db = module.backward(dz)
+                dz, _, dw, db = module.backward(dz)
                 dw.update(db)
                 for k, v in dw.items():
                     i = k.rindex('.')

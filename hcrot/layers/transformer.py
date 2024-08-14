@@ -339,7 +339,7 @@ class Transformer(Module):
     def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
         dx, dw, db = dz, {}, {}
         
-        _, dx, dw_, db_ = self.decoder.backward(dx)
+        dtgt, dmem, dw_, db_ = self.decoder.backward(dx)
         for k,v in dw_.items():
             for param in self.parameters.keys():
                 if k in param:
@@ -350,7 +350,7 @@ class Transformer(Module):
                 if k in param:
                     db[param] = v
         
-        dx, dw_, db_ = self.encoder.backward(dx)
+        dsrc, dw_, db_ = self.encoder.backward(dmem)
         for k,v in dw_.items():
             for param in self.parameters.keys():
                 if k in param:
@@ -361,7 +361,7 @@ class Transformer(Module):
                 if k in param:
                     db[param] = v
         
-        return dx, dw, db
+        return dsrc, dtgt, dw, db
 
 def _get_clone(module, N):
     return ModuleList([copy.deepcopy(module) for _ in range(N)])
