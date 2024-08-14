@@ -19,7 +19,10 @@ python cnn.py --lr_rate 1e-1 --epochs 10
 python rnn.py --model rnn --lr_rate 1e-3 --hidden_size 256 --epochs 10
 
 # LSTM
-python rnn.py --model lstm --lr_rate 1e-3 --hidden_state 256 --epochs 10
+python rnn.py --model lstm --lr_rate 1e-3 --hidden_size 256 --epochs 10
+
+# Transformer
+python transformer.py --lr_rate 1e-4 --hidden_size 256 --epochs 10
 ```
 
 ## Problem
@@ -32,4 +35,5 @@ Softmax and Sigmoid have a process of calculating in square form like e^i. If th
 | MLP | [Link](https://emeraldgoose.github.io/pytorch/dl-implement/) |
 | CNN | [Link](https://emeraldgoose.github.io/pytorch/cnn-implementation/) |
 | RNN | [Link](https://emeraldgoose.github.io/pytorch/rnn-impl/) |
-| LSTM | [Link](https://emeraldgoose.github.io/pytorch/lstm-implementation/)
+| LSTM | [Link](https://emeraldgoose.github.io/pytorch/lstm-implementation/) |
+| Transformer | [Link]() |
