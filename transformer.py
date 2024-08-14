@@ -55,7 +55,6 @@ def train(model, train_loader, criterion, optimizer):
         total_loss += loss.item()
     return total_loss / len(train_loader)
 
-# 평가 함수
 def evaluate(model, test_loader, criterion):
     total_loss = 0
     correct = 0
