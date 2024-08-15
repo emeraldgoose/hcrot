@@ -36,4 +36,4 @@ Softmax and Sigmoid have a process of calculating in square form like e^i. If th
 | CNN | [Link](https://emeraldgoose.github.io/pytorch/cnn-implementation/) |
 | RNN | [Link](https://emeraldgoose.github.io/pytorch/rnn-impl/) |
 | LSTM | [Link](https://emeraldgoose.github.io/pytorch/lstm-implementation/) |
-| Transformer | [Link]() |
+| Transformer | [Link1](https://emeraldgoose.github.io/pytorch/transformer-scratch-implementation-1/), [Link2](https://emeraldgoose.github.io/pytorch/transformer-scratch-implementation-2/) |
