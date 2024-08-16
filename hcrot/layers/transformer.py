@@ -218,7 +218,7 @@ class TransformerEncoder(Module):
         
         if self.norm is not None:
             dz, dw_norm, db_norm = self.norm.backward(dz)
-        dw['norm.weight'], db['norm.bias'] = dw_norm, db_norm
+            dw['norm.weight'], db['norm.bias'] = dw_norm, db_norm
         
         for i, mod in reversed(list(enumerate(self.layers))):
             dx, dw_, db_ = mod.backward(dx)
@@ -270,7 +270,7 @@ class TransformerDecoder(Module):
         
         if self.norm is not None:
             dz, dw_norm, db_norm = self.norm.backward(dz)
-        dw['norm.weight'], db['norm.bias'] = dw_norm, db_norm
+            dw['norm.weight'], db['norm.bias'] = dw_norm, db_norm
         
         for i, mod in reversed(list(enumerate(self.layers))):
             d_tgt, d_memory_partial, dw_, db_ = mod.backward(d_tgt)

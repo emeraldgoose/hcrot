@@ -95,7 +95,7 @@ class Embedding(Module):
     def backward(self, dz: NDArray) -> NDArray:
         dw = np.zeros((self.num_embeddings, self.embedding_dim))
         dw[self.x] = dz
-        return dw
+        return None, dw
 
     def extra_repr(self) -> str:
         s = '{}, {}'.format(self.num_embeddings, self.embedding_dim)

@@ -10,7 +10,11 @@ class Optimizer:
         self.lr_rate = lr_rate
     
     def update(self, dz: NDArray) -> None:
+        registered_layer = [layer_name.split('.')[0] for layer_name in self.net.parameters.keys()]
         for name, module in reversed(self.net.sequential):
+            if name not in registered_layer:
+                continue
+            
             if isinstance(module, (Linear, Conv2d)):
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
@@ -21,8 +25,16 @@ class Optimizer:
                 for k, v in dw.items():
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
                     module.__setattr__(k, new_weight)
-            elif isinstance(module, Transformer):
-                dz, _, dw, db = module.backward(dz)
+            elif isinstance(module, (Transformer, TransformerDecoder)):
+                dz, dtgt, dw, db = module.backward(dz)
+                dw.update(db)
+                for k, v in dw.items():
+                    i = k.rindex('.')
+                    module_name, param = k[:i], k[i+1:]
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
+                    module.get_submodule(module_name).__setattr__(param, new_weight)
+            elif isinstance(module, TransformerEncoder):
+                dz, dw, db = module.backward(dz)
                 dw.update(db)
                 for k, v in dw.items():
                     i = k.rindex('.')
@@ -30,7 +42,7 @@ class Optimizer:
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
             elif isinstance(module, Embedding):
-                dw = module.backward(dz)
+                dz, dw = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
             else:
                 dz = module.backward(dz)
