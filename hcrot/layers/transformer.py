@@ -46,7 +46,7 @@ class TransformerEncoderLayer(Module):
         
         return x
     
-    def backward(self, dz: NDArray):
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
         dw, db = {}, {}
         
         # Feed-Forward backward
