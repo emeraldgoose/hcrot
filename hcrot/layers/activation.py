@@ -97,6 +97,21 @@ class GELU(Module):
     def extra_repr(self) -> str:
         return 'approximate=tanh'
 
+class SiLU(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def __call__(self, *args, **kwargs) -> NDArray:
+        return self.forward(*args, **kwargs)
+
+    def forward(self, x: NDArray) -> NDArray:
+        self.sigm = sigmoid(x)
+        self.x = x
+        return x * self.sigm
+    
+    def backward(self, dz: NDArray) -> NDArray:
+        return dz * (self.sigm + self.x * self.sigm * (1 - self.sigm))
+
 class MultiHeadAttention(Module):
     def __init__(
             self,

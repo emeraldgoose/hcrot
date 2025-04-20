@@ -1,4 +1,4 @@
-from .activation import Softmax, Sigmoid, ReLU, GELU, MultiHeadAttention
+from .activation import Softmax, Sigmoid, ReLU, GELU, MultiHeadAttention, SiLU
 from .layer import Linear, Flatten, Embedding, Dropout
 from .loss import MSELoss, CrossEntropyLoss
 from .conv import Conv2d
@@ -9,7 +9,7 @@ from .module import Module, Sequential, ModuleList
 from .norm import LayerNorm
 
 __all__ = [
-    'Softmax', 'Sigmoid', 'ReLU', 'GELU', 'MultiHeadAttention',
+    'Softmax', 'Sigmoid', 'ReLU', 'GELU', 'MultiHeadAttention', 'SiLU'
     'Linear', 'Flatten', 'Embedding', 'Dropout',
     'MSELoss', 'CrossEntropyLoss',
     'Conv2d',
