@@ -75,3 +75,78 @@ class LayerNorm(Module):
         return '{normalized_shape}, eps={eps}, '\
             'elementwise_affine={elementwise_affine}'.format(**self.__dict__)
     
+class GroupNorm(Module):
+    def __init__(
+            self, 
+            num_groups: int, 
+            num_channels: int, 
+            eps: float = 1e-05, 
+            affine: bool = True
+        ) -> None:
+        super().__init__()
+        if num_channels % num_groups != 0:
+            raise ValueError("num_channels must be divisible by num_groups")
+        
+        self.num_groups = num_groups
+        self.num_channels = num_channels
+        self.eps = eps
+        self.affine = affine
+        self.weight = np.ones((1, num_groups, num_channels // num_groups, 1))
+        self.bias = np.zeros((1, num_groups, num_channels // num_groups, 1))
+        self.dims = (2,3)
+        self.input = None
+        self.batch_size = None
+        self.normalized = None
+        self.mean = None
+        self.variance = None
+
+    def __call__(self, *args, **kwargs) -> Any:
+        return self.forward(*args, **kwargs)
+
+    def forward(self, x: NDArray) -> NDArray:
+        if x.ndim < 2:
+            raise RuntimeError(f"Expected at least 2 dimensions for input but received {x.ndim}")
+        
+        self.input = x
+        self.batch_size = x.shape[0]
+        reshaped_x = np.reshape(x, (self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1))
+
+        self.mean = np.mean(reshaped_x, axis=self.dims, keepdims=True)
+        self.variance = np.var(reshaped_x, axis=self.dims, keepdims=True)
+        self.normalized = (reshaped_x - self.mean) / np.sqrt(self.variance + self.eps)
+        
+        if self.affine:
+            self.normalized *= self.weight
+            self.normalized += self.bias
+        normalized = np.reshape(self.normalized, x.shape)
+        return normalized
+
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+        dx = np.zeros_like(self.input.shape)
+        dw, db = np.zeros_like(self.weight), np.zeros_like(self.bias)
+
+        dz = np.reshape(dz, (self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1))
+
+        E = np.prod(dz.shape[2:]) # number of elements per group
+        x = self.input.reshape(self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1)
+
+        mean = self.mean
+        std = np.sqrt(self.variance + self.eps)
+
+        if self.affine:
+            grad_xhat = dz * self.weight
+        else:
+            grad_xhat = dz
+        grad_xhat_flat = grad_xhat.reshape(self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1)
+
+        grad_var = np.sum(grad_xhat_flat * (x - mean) * -0.5 * (std ** -3), axis=self.dims, keepdims=True)
+        grad_mean = np.sum(grad_xhat_flat * -1 / std, axis=self.dims, keepdims=True) + grad_var * np.mean(-2 * (x - mean), axis=self.dims, keepdims=True)
+
+        dx_flat = grad_xhat_flat / std + grad_var * 2 * (x - mean) / E + grad_mean / E
+        dx = dx_flat.reshape(self.input.shape)
+
+        if self.affine:
+            dw = np.sum(dz * self.normalized, axis=(0,3), keepdims=True).reshape(dw.shape)
+            db = np.sum(dz, axis=(0,3)).reshape(db.shape)
+
+        return dx, dw, db
