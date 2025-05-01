@@ -69,14 +69,16 @@ class Conv2d(Module):
         weight_h, weight_w = self.weight.shape[2:]
         (B, Cout), Cin = dz.shape[:2], self.X.shape[1]
         
-        pad_dx = self.Pad(dz, (weight_h - 1, weight_w - 1))
+        pad_h = weight_h - 1
+        pad_w = weight_w - 1
+        dz = self.Pad(dz, (pad_h // 2, pad_w // 2))
         dx = np.zeros_like(self.X)
         
         for b in range(B):
             for cin in range(Cin):
                 for cout in range(Cout):
-                    dw[cout][cin] += convolve2d(self.X[b][cin], dz[b][cout])
-                    dx[b][cin] += convolve2d(pad_dx[b][cin], np.flip(self.weight[cout][cin]))
+                    dw[cout][cin] += convolve2d(dz[b][cout],self.X[b][cin])
+                    dx[b][cin] += convolve2d(dz[b][cin], np.flip(self.weight[cout][cin]))
             for cout in range(Cout):
                 db[cout][0] = np.sum(dz[b][cout], axis=None)
 
