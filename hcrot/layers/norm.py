@@ -49,6 +49,8 @@ class LayerNorm(Module):
         return normalized        
         
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+        dw, db = None, None
+
         E = dz.shape[-1]
         x_flat = self.input.reshape(-1, E)
         
@@ -66,8 +68,10 @@ class LayerNorm(Module):
         dx_flat = grad_xhat_flat / std + grad_var * 2 * (x_flat - mean) / E + grad_mean / E
         dx = dx_flat.reshape(self.input.shape)
         
-        dw = np.sum(dz * x_hat.reshape(self.input.shape), axis=(0,1))
-        db = np.sum(dz, axis=(0,1))
+        if self.elementwise_affine:
+            dw = np.sum(dz * x_hat.reshape(self.input.shape), axis=(0,1))
+            if self.bias is not None:
+                db = np.sum(dz, axis=(0,1))
         
         return dx, dw, db
         
@@ -122,8 +126,7 @@ class GroupNorm(Module):
         return normalized
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
-        dx = np.zeros_like(self.input.shape)
-        dw, db = np.zeros_like(self.weight), np.zeros_like(self.bias)
+        dx, dw, db = np.zeros_like(self.input.shape), None, None
 
         dz = np.reshape(dz, (self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1))
 
@@ -146,7 +149,7 @@ class GroupNorm(Module):
         dx = dx_flat.reshape(self.input.shape)
 
         if self.affine:
-            dw = np.sum(dz * self.normalized, axis=(0,3), keepdims=True).reshape(dw.shape)
-            db = np.sum(dz, axis=(0,3)).reshape(db.shape)
+            dw = np.sum(dz * self.normalized, axis=(0,3), keepdims=True).reshape(self.weight.shape)
+            db = np.sum(dz, axis=(0,3)).reshape(self.bias.shape)
 
         return dx, dw, db

@@ -44,6 +44,28 @@ class Optimizer:
             elif isinstance(module, Embedding):
                 dz, dw = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
+            elif isinstance(module, LayerNorm):
+                if module.elementwise_affine:
+                    if module.bias:
+                        dz, dw, db = module.backward(dz)
+                        dw.update(db)
+                        for k, v in dw.items():
+                            new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
+                            module.__setattr__(k, new_weight)
+                    else:
+                        dz, dw, _ = module.backward(dz)
+                        module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
+                else:
+                    dz, _, _ = module.backward(dz)
+            elif isinstance(module, GroupNorm):
+                if module.affine:
+                    dz, dw, db = module.backward(dz)
+                    dw.update(db)
+                    for k, v in dw.items():
+                        new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
+                        module.__setattr__(k, new_weight)
+                else:
+                    dz, _, _ = module.backward(dz)
             else:
                 dz = module.backward(dz)
     

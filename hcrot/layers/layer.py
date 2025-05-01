@@ -111,8 +111,8 @@ class Dropout(Module):
         if p < 0 or p > 1:
             raise ValueError('p is between 0 and 1')
 
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
 
     def forward(self, x: NDArray) -> NDArray:
         """
@@ -131,3 +131,16 @@ class Dropout(Module):
 
     def extra_repr(self) -> str:
         return 'p={}'.format(self.p)
+    
+class Identity(Module):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+    def forward(self, input: NDArray) -> NDArray:
+        return input
+    
+    def backward(self, dz: NDArray) -> NDArray:
+        return dz
