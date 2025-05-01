@@ -43,8 +43,8 @@ class Conv2d(Module):
     def forward(self, x: NDArray) -> NDArray:
         self.X = x
         pad_x = self.Pad(x, self.padding)
-        image, kernel, B = pad_x[0][0], self.weight[0][0], len(x)
-        hin, win = image.shape
+        kernel, B = self.weight[0][0], len(x)
+        hin, win = x.shape[2:]
         hout = np.floor((hin + 2 * self.padding[0] - 1 * (len(kernel)-1) - 1) / self.stride[0] + 1).astype(int)
         wout = np.floor((win + 2 * self.padding[1] - 1 * (len(kernel[0])-1) - 1) / self.stride[1] + 1).astype(int)
         ret = np.zeros((B, self.out_channel, hout, wout))
