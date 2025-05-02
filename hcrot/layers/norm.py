@@ -153,3 +153,7 @@ class GroupNorm(Module):
             db = np.sum(dz, axis=(0,3)).reshape(self.bias.shape)
 
         return dx, dw, db
+
+    def extra_repr(self) -> str:
+        return '{num_groups}, {num_channels}, eps={eps}, '\
+            'affine={affine}'.format(**self.__dict__)
