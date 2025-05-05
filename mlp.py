@@ -8,20 +8,21 @@ from hcrot import layers, dataset, optim
 class Model(layers.Module):
     def __init__(self, input_len=28*28, hidden=512, num_classes=10):
         super().__init__()
-        self.net1 = layers.Sequential(
-            layers.Linear(in_features=input_len, out_features=hidden),
-            layers.Sigmoid()
-            )
+        self.linear1 = layers.Linear(in_features=input_len, out_features=hidden)
+        self.sigmoid1 = layers.Sigmoid()
         self.dropout = layers.Dropout(p=0.3)
-        self.net2 = layers.Sequential(
-            layers.Linear(in_features=hidden, out_features=hidden),
-            layers.Sigmoid()
-            )
+        self.linear2 = layers.Linear(in_features=hidden, out_features=hidden)
+        self.sigmoid2 = layers.Sigmoid()
         self.fc = layers.Linear(in_features=hidden, out_features=num_classes)
         
     def forward(self, x):
-        o = self.dropout(self.net1(x))
-        return self.fc(self.net2(o))
+        x = self.linear1(x)
+        x = self.sigmoid1(x)
+        x = self.dropout(x)
+        x = self.linear2(x)
+        x = self.sigmoid2(x)
+        o = self.fc(x)
+        return o
 
 def train(args):
     model = Model(input_len=28*28, hidden=args.hidden_size, num_classes=10)
