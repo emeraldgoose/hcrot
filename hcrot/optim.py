@@ -10,11 +10,7 @@ class Optimizer:
         self.lr_rate = lr_rate
     
     def update(self, dz: NDArray) -> None:
-        registered_layer = [layer_name.split('.')[0] for layer_name in self.net.parameters.keys()]
         for name, module in reversed(self.net.sequential):
-            if name not in registered_layer:
-                continue
-            
             if isinstance(module, (Linear, Conv2d)):
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
