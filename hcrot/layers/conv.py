@@ -34,8 +34,8 @@ class Conv2d(Module):
 
     def reset_parameters(self) -> None:
         sqrt_k = np.sqrt(1 / (self.in_channel * sum(self.kernel_size)))
-        self.weight = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size))
-        self.bias = np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1))
+        setattr(self, 'weight', np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size)))
+        setattr(self, 'bias', np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1)))
 
     def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
