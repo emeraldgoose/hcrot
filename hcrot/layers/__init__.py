@@ -7,6 +7,7 @@ from .rnn import RNN, LSTM
 from .transformer import Transformer, TransformerEncoderLayer, TransformerDecoderLayer, TransformerEncoder, TransformerDecoder
 from .module import Module, Sequential, ModuleList
 from .norm import LayerNorm, GroupNorm
+from .diffusion import ResidualBlock, Attention, UNetModel
 
 __all__ = [
     'Softmax', 'Sigmoid', 'ReLU', 'GELU', 'MultiHeadAttention', 'SiLU',
@@ -17,5 +18,6 @@ __all__ = [
     'RNN', 'LSTM',
     'Transformer', 'TransformerEncoderLayer', 'TransformerDecoderLayer', 'TransformerEncoder', 'TransformerDecoder',
     'Module', 'Sequential', 'ModuleList',
-    'LayerNorm', 'GroupNorm'
+    'LayerNorm', 'GroupNorm',
+    'ResidualBlock', 'Attention', 'UNetModel'
 ]
