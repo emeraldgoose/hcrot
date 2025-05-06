@@ -1,5 +1,6 @@
 from itertools import chain
 from typing import Union, TypeVar, Mapping, Optional, Iterable, Iterator
+import numpy as np
 from numpy.typing import NDArray
 from collections import OrderedDict
 
@@ -23,6 +24,8 @@ class Module:
             else:
                 self.add_parameters(name, value)
                 self.sequential.append((name, value))
+        elif isinstance(value, np.ndarray):
+            self.parameters[name] = value
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
@@ -53,10 +56,19 @@ class Module:
                 self.parameters[f'{prefix}.{param}'] = getattr(module, param)
         elif module._get_name() in ('ModuleList'):
             for i, mod in enumerate(module):
-                for param in mod.parameters.keys():
-                    mod_name, param_name = param.split('.')
-                    self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod.get_submodule(mod_name), param_name)
-        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder','Transformer'):
+                if isinstance(mod, ModuleList):
+                    prefix = f"{prefix}.{i}"
+                    self.add_parameters(prefix, mod)
+                else:
+                    for param in mod.parameters.keys():
+                        _idx = param.rfind('.')
+                        if _idx == -1:
+                            param_name = param
+                            self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod, param_name)
+                        else:
+                            mod_name, param_name = param[:_idx], param[_idx+1:]
+                            self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod.get_submodule(mod_name), param_name)
+        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder', 'Transformer', 'ResidualBlock', 'Attention', 'UNetModel'):
             for param in module.parameters.keys():
                 i = param.rindex('.')
                 mod_name, param_name = param[:i], param[i+1:]
