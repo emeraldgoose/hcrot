@@ -37,6 +37,14 @@ class Optimizer:
                     module_name, param = k[:i], k[i+1:]
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
+            elif isinstance(module, UNetModel):
+                dz, temb, dw, db = module.backward(dz)
+                dw.update(db)
+                for k, v in dw.items():
+                    i = k.rindex('.')
+                    module_name, param = k[:i], k[i+1:]
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
+                    module.get_submodule(module_name).__setattr__(param, new_weight)
             elif isinstance(module, Embedding):
                 dz, dw = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
