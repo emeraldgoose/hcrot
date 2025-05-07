@@ -381,7 +381,6 @@ class UNetModel(Module):
         self.down_block_res_samples_channels = []
         for block1, block2, downsample in self.down_blocks:
             sample = block1(sample, temb)
-            
             down_block_res_samples.append(sample)
             self.down_block_res_samples_channels.append(sample.shape[1])
 
