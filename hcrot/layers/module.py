@@ -98,12 +98,11 @@ class Module:
 
     def load_state_dict(self, state_dict: Mapping[str, NDArray]) -> None:
         for param_name, value in state_dict.items():
+            if param_name not in self.parameters.keys():
+                raise KeyError(f'Missing key in state_dict: {param_name}')
+            
             param_name = param_name.split('.')
             module_name, weight_name = '.'.join(param_name[:-1]), param_name[-1]
-            
-            if module_name not in dict(self.sequential).keys():
-                raise KeyError(f'Missing key in state_dict: {module_name}')
-            
             module = self.get_submodule(module_name)
             
             weight_shape = module.__getattribute__(weight_name).shape
