@@ -3,7 +3,7 @@ from typing_extensions import *
 import numpy as np
 from numpy.typing import NDArray
 
-from .layer import Linear, Identity, Dropout
+from .layer import Linear, Identity, Dropout, Embedding
 from .conv import Conv2d
 from .norm import GroupNorm
 from .activation import SiLU, Softmax, MultiHeadAttention
@@ -368,7 +368,6 @@ class UNetModel(Module):
             timesteps = np.array([timesteps], dtype=np.int64)
 
         timesteps = timesteps * np.ones(sample.shape[0], dtype=sample.dtype)
-
         temb = sinusoidal_embedding(timesteps, self.block_out_channels[0], self.freq_shift)
         temb = self.time_embedding(temb)
 
@@ -378,15 +377,12 @@ class UNetModel(Module):
 
         # down
         down_block_res_samples = []
-        self.down_block_res_samples_channels = []
         for block1, block2, downsample in self.down_blocks:
             sample = block1(sample, temb)
             down_block_res_samples.append(sample)
-            self.down_block_res_samples_channels.append(sample.shape[1])
 
             sample = block2(sample, temb)
             down_block_res_samples.append(sample)
-            self.down_block_res_samples_channels.append(sample.shape[1])
 
             sample = downsample(sample)
 
@@ -396,12 +392,15 @@ class UNetModel(Module):
         sample = self.mid_block2(sample, temb)
 
         # up
+        self.res_samples_channels = []
         for block1, block2, upsample in self.up_blocks:
             res_sample = down_block_res_samples.pop()
+            self.res_samples_channels.append(res_sample.shape[1])
             sample = np.concatenate((sample, res_sample), axis=1)
             sample = block1(sample, temb)
 
             res_sample = down_block_res_samples.pop()
+            self.res_samples_channels.append(res_sample.shape[1])
             sample = np.concatenate((sample, res_sample), axis=1)
             sample = block2(sample, temb)
 
@@ -453,7 +452,7 @@ class UNetModel(Module):
                 if param in self.parameters.keys():
                     db[param] = v
 
-            _channel = self.down_block_res_samples_channels.pop()
+            _channel = self.res_samples_channels.pop()
             dz_sample, dres_sample = dz_sample[:,:-_channel,:,:], dz_sample[:,-_channel:,:,:]
             up_block_dres_samples.append(dres_sample)
 
@@ -469,7 +468,7 @@ class UNetModel(Module):
                 if param in self.parameters.keys():
                     db[param] = v
             
-            _channel = self.down_block_res_samples_channels.pop()
+            _channel = self.res_samples_channels.pop()
             dz_sample, dres_sample = dz_sample[:,:-_channel,:,:], dz_sample[:,-_channel:,:,:]
             up_block_dres_samples.append(dres_sample)
 
@@ -548,6 +547,292 @@ class UNetModel(Module):
         db['conv_in.bias'] = db_conv_in
         
         # time
+        dtemb, dw_temb2, db_temb2 = self.time_embedding[2].backward(dtemb)
+        dw['time_embedding.2.weight'] = dw_temb2
+        db['time_embedding.2.bias'] = db_temb2
+
+        dtemb = self.time_embedding[1].backward(dtemb)
+
+        dtemb, dw_temb1, db_temb1 = self.time_embedding[0].backward(dtemb)
+        dw['time_embedding.0.weight'] = dw_temb1
+        db['time_embedding.0.bias'] = db_temb1
+        
+        return dx, dtemb, dw, db
+
+class UNetConditionModel(Module):
+    def __init__(
+            self,
+            sample_size=28,
+            in_channels=1,
+            out_channels=1,
+            block_out_channels=(16,32),
+            norm_num_groups=8,
+            attention_head_dim=32,
+            num_classes=10,
+            freq_shift=0,
+            time_embed_dim=None
+        ):
+        super().__init__()
+        self.sample_size = sample_size
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.block_out_channels = block_out_channels
+        self.freq_shift = freq_shift
+        
+        timestep_input_dim = block_out_channels[0]
+        time_embed_dim = time_embed_dim or block_out_channels[0] * 4
+
+        self.time_embedding = Sequential(
+            Linear(timestep_input_dim, time_embed_dim),
+            SiLU(),
+            Linear(time_embed_dim, time_embed_dim)
+        )
+        
+        self.class_embedding = Embedding(
+            num_embeddings=num_classes,
+            embedding_dim=time_embed_dim
+        )
+
+        self.conv_in = Conv2d(
+            in_channel=in_channels,
+            out_channel=block_out_channels[0],
+            kernel=3,
+            stride=1,
+            padding=1
+        )
+        
+        # down
+        down_blocks = []
+        in_dim = block_out_channels[0]
+        for hidden_dim in block_out_channels[1:]:
+            down_blocks.append(
+                ModuleList([
+                    ResidualBlock(in_dim, in_dim, time_embed_dim, groups=norm_num_groups),
+                    ResidualBlock(in_dim, in_dim, time_embed_dim, groups=norm_num_groups),
+                    Conv2d(in_dim, hidden_dim, kernel=3, stride=1, padding=1)
+                ])
+            )
+            in_dim = hidden_dim
+        self.down_blocks = ModuleList(down_blocks)
+
+        # mid
+        mid_dim = block_out_channels[-1]
+        self.mid_block1 = ResidualBlock(mid_dim, mid_dim, time_embed_dim, groups=norm_num_groups)
+        self.mid_attn = Attention(query_dim=mid_dim, dim_head=attention_head_dim)
+        self.mid_block2 = ResidualBlock(mid_dim, mid_dim, time_embed_dim, groups=norm_num_groups)
+
+        # up
+        up_blocks = []
+        in_dim = mid_dim
+        reversed_block_out_channels = list(reversed(block_out_channels[:-1]))
+        for hidden_dim in reversed_block_out_channels:
+            up_blocks.append(
+                ModuleList([
+                    ResidualBlock(in_dim + hidden_dim, in_dim, time_embed_dim, groups=norm_num_groups),
+                    ResidualBlock(in_dim + hidden_dim, in_dim, time_embed_dim, groups=norm_num_groups),
+                    Conv2d(in_dim, hidden_dim, kernel=3, stride=1, padding=1)
+                ])
+            )
+            in_dim = hidden_dim
+        self.up_blocks = ModuleList(up_blocks)
+
+        self.out_block = ResidualBlock(block_out_channels[0] * 2, block_out_channels[0], time_embed_dim, groups=norm_num_groups)
+        self.conv_out = Conv2d(block_out_channels[0], out_channel=out_channels, kernel=1)
+        
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+    def forward(self, sample: NDArray, timesteps: NDArray, classes: List):
+        class_embeds = self.class_embedding(classes)
+        
+        # time
+        if isinstance(timesteps, int):
+            timesteps = np.array([timesteps], dtype=np.int64)
+
+        timesteps = timesteps * np.ones(sample.shape[0], dtype=sample.dtype)
+        temb = sinusoidal_embedding(timesteps, self.block_out_channels[0], self.freq_shift)
+        temb = self.time_embedding(temb) + class_embeds
+
+        # pre-process
+        sample = self.conv_in(sample)
+        skip_sample = sample.copy()
+
+        # down
+        down_block_res_samples = []
+        
+        for block1, block2, downsample in self.down_blocks:
+            sample = block1(sample, temb)
+            down_block_res_samples.append(sample)
+
+            sample = block2(sample, temb)
+            down_block_res_samples.append(sample)
+
+            sample = downsample(sample)
+
+        # mid
+        sample = self.mid_block1(sample, temb)
+        sample = self.mid_attn(sample)
+        sample = self.mid_block2(sample, temb)
+
+        # up
+        self.res_samples_channels = []
+        for block1, block2, upsample in self.up_blocks:
+            res_sample = down_block_res_samples.pop()
+            self.res_samples_channels.append(res_sample.shape[1])
+            sample = np.concatenate((sample, res_sample), axis=1)
+            sample = block1(sample, temb)
+
+            res_sample = down_block_res_samples.pop()
+            self.res_samples_channels.append(res_sample.shape[1])
+            sample = np.concatenate((sample, res_sample), axis=1)
+            sample = block2(sample, temb)
+
+            sample = upsample(sample)
+        
+        # post-process
+        sample = np.concatenate((sample, skip_sample), axis=1)
+        sample = self.out_block(sample, temb)
+        out = self.conv_out(sample)
+        return out
+    
+    def backward(self, dz: NDArray):
+        dx, dw, db = np.zeros_like(dz), {}, {}
+
+        # post-process
+        dz, dw_conv_out, db_conv_out = self.conv_out.backward(dz)
+        dw['conv_out.weight'] = dw_conv_out
+        db['conv_out.bias'] = db_conv_out
+
+        dz, dtemb, dw_out_block, db_out_block = self.out_block.backward(dz)
+        for k, v in dw_out_block.items():
+            param = f'out_block.{k}'
+            if param in self.parameters.keys():
+                dw[param] = v
+            
+        for k, v in db_out_block.items():
+            param = f'out_block.{k}'
+            if param in self.parameters.keys():
+                db[param] = v
+
+        dz_sample, dz_skip_sample = np.split(dz, indices_or_sections=2, axis=1)
+        
+        # up
+        up_block_dres_samples = []
+        for i, (block1, block2, upsample) in zip(range(len(self.up_blocks)-1,-1,-1),reversed(self.up_blocks)):
+            dz_sample, dw_upsample, db_upsample = upsample.backward(dz_sample)
+            dw[f'up_blocks.{i}.2.weight'] = dw_upsample
+            db[f'up_blocks.{i}.2.bias'] = db_upsample
+
+            dz_sample, dtemb_upblock2, dw_block2, db_block2 = block2.backward(dz_sample)
+            dtemb += dtemb_upblock2
+            for k, v in dw_block2.items():
+                param = f'up_blocks.{i}.1.{k}'
+                if param in self.parameters.keys():
+                    dw[param] = v
+
+            for k, v in db_block2.items():
+                param = f'up_blocks.{i}.1.{k}'
+                if param in self.parameters.keys():
+                    db[param] = v
+
+            _channel = self.res_samples_channels.pop()
+            dz_sample, dres_sample = dz_sample[:,:-_channel,:,:], dz_sample[:,-_channel:,:,:]
+            up_block_dres_samples.append(dres_sample)
+
+            dz_sample, dtemb_upblock1, dw_block1, db_block1 = block1.backward(dz_sample)
+            dtemb += dtemb_upblock1
+            for k, v in dw_block1.items():
+                param = f'up_blocks.{i}.0.{k}'
+                if param in self.parameters.keys():
+                    dw[param] = v
+
+            for k, v in db_block1.items():
+                param = f'up_blocks.{i}.0.{k}'
+                if param in self.parameters.keys():
+                    db[param] = v
+            
+            _channel = self.res_samples_channels.pop()
+            dz_sample, dres_sample = dz_sample[:,:-_channel,:,:], dz_sample[:,-_channel:,:,:]
+            up_block_dres_samples.append(dres_sample)
+
+        # mid
+        dz_sample, dtemb_mid_block2, dw_mid_block2, db_mid_block2 = self.mid_block2.backward(dz_sample)
+        dtemb += dtemb_mid_block2
+        for k, v in dw_mid_block2.items():
+            param = f'mid_block2.{k}'
+            if param in self.parameters.keys():
+                dw[param] = v
+
+        for k, v in db_mid_block2.items():
+            param = f'mid_block2.{k}'
+            if param in self.parameters.keys():
+                db[param] = v
+
+        dz_sample, dw_mid_attn, db_mid_attn = self.mid_attn.backward(dz_sample)
+        for k, v in dw_mid_attn.items():
+            param = f'mid_attn.{k}'
+            if param in self.parameters.keys():
+                dw[param] = v
+        
+        for k, v in db_mid_attn.items():
+            param = f'mid_attn.{k}'
+            if param in self.parameters.keys():
+                db[param] = v
+        
+        dz_sample, dtemb_mid_block1, dw_mid_block1, db_mid_block1 = self.mid_block1.backward(dz_sample)
+        dtemb += dtemb_mid_block1
+        for k, v in dw_mid_block1.items():
+            param = f'mid_block1.{k}'
+            if param in self.parameters.keys():
+                dw[param] = v
+
+        for k, v in db_mid_block1.items():
+            param = f'mid_block1.{k}'
+            if param in self.parameters.keys():
+                db[param] = v
+
+        # down
+        for i, (block1, block2, downsample) in zip(range(len(self.down_blocks)-1,-1,-1),reversed(self.down_blocks)):
+            dz_sample, dw_downsample, db_downsample = downsample.backward(dz_sample)
+            dw[f'down_blocks.{i}.2.weight'] = dw_downsample
+            db[f'down_blocks.{i}.2.bias'] = db_downsample
+            
+            dres_sample = up_block_dres_samples.pop()
+            dz_sample, dtemb_downblock2, dw_block2, db_block2 = block2.backward(dz_sample + dres_sample)
+            dtemb += dtemb_downblock2
+            for k, v in dw_block2.items():
+                param = f'down_blocks.{i}.1.{k}'
+                if param in self.parameters.keys():
+                    dw[param] = v
+
+            for k, v in db_block2.items():
+                param = f'down_blocks.{i}.1.{k}'
+                if param in self.parameters.keys():
+                    db[param] = v
+
+            dres_sample = up_block_dres_samples.pop()
+            dz_sample, dtemb_downblock1, dw_block1, db_block1 = block1.backward(dz_sample + dres_sample)
+            dtemb += dtemb_downblock1
+            for k, v in dw_block1.items():
+                param = f'down_blocks.{i}.0.{k}'
+                if param in self.parameters.keys():
+                    dw[param] = v
+
+            for k, v in db_block1.items():
+                param = f'down_blocks.{i}.0.{k}'
+                if param in self.parameters.keys():
+                    db[param] = v
+
+        # pre-process
+        dz_sample += dz_skip_sample
+        dx, dw_conv_in, db_conv_in = self.conv_in.backward(dz_sample)
+        dw['conv_in.weight'] = dw_conv_in
+        db['conv_in.bias'] = db_conv_in
+        
+        # time
+        dcls_emb, dw_cls_emb = self.class_embedding.backward(dtemb)
+        dw['class_embedding.weight'] = dw_cls_emb
+
         dtemb, dw_temb2, db_temb2 = self.time_embedding[2].backward(dtemb)
         dw['time_embedding.2.weight'] = dw_temb2
         db['time_embedding.2.bias'] = db_temb2
