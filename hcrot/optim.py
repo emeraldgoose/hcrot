@@ -11,7 +11,7 @@ class Optimizer:
     
     def update(self, dz: NDArray) -> None:
         for name, module in reversed(self.net.sequential):
-            if isinstance(module, (Linear, Conv2d)):
+            if isinstance(module, (Linear, Conv2d, ConvTranspose2d)):
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
                 module.bias = self.weight_update(f'{name}.bias', module.bias, db, self.lr_rate)
@@ -37,8 +37,8 @@ class Optimizer:
                     module_name, param = k[:i], k[i+1:]
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
-            elif isinstance(module, (UNetModel, UNetConditionModel)):
-                dz, temb, dw, db = module.backward(dz)
+            elif isinstance(module, UNetModel):
+                dz, dtemb, dw, db = module.backward(dz)
                 dw.update(db)
                 for k, v in dw.items():
                     i = k.rindex('.')

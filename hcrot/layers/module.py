@@ -68,7 +68,7 @@ class Module:
                         else:
                             mod_name, param_name = param[:_idx], param[_idx+1:]
                             self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod.get_submodule(mod_name), param_name)
-        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder', 'Transformer', 'ResidualBlock', 'Attention', 'UNetModel', 'UNetConditionModel'):
+        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder', 'Transformer', 'ResidualBlock', 'Attention', 'Upsample', 'UNetModel'):
             for param in module.parameters.keys():
                 i = param.rindex('.')
                 mod_name, param_name = param[:i], param[i+1:]
