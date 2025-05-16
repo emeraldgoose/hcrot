@@ -13,7 +13,7 @@ class Module:
         self.sequential = []
         self.training = True
 
-    def __setattr__(self, name: str, value: Union[str, int, T]) -> None:
+    def __setattr__(self, name: str, value: Union[str, int, T, NDArray]) -> None:
         super().__setattr__(name, value)
         if isinstance(value, Module):
             self._modules[name] = value
@@ -110,6 +110,7 @@ class Module:
             if weight_shape != value_shape:
                 raise RuntimeError(f'Size mismatch : expected {weight_shape} but found {value_shape}')
             
+            self.parameters['.'.join(param_name)] = value
             module.__setattr__(weight_name, value)
 
     def _get_name(self) -> str:
