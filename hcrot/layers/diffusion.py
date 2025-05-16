@@ -40,7 +40,7 @@ class ResidualBlock(Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        self.time_emb_proj = Sequential(SiLU(), Linear(temb_channels, out_channels))
+        self.time_emb_proj = Linear(temb_channels, out_channels)
 
         self.residual_conv = Conv2d(
             in_channel=in_channels,
@@ -102,10 +102,8 @@ class ResidualBlock(Module):
 
         dtemb = np.sum(dz_, axis=(2,3))
 
-        dtemb, dw_time_emb_linear, db_time_emb_linear = self.time_emb_proj[1].backward(dtemb)
+        dtemb, dw_time_emb_linear, db_time_emb_linear = self.time_emb_proj.backward(dtemb)
         dw['time_emb_proj.1.weight'], db['time_emb_proj.1.bias'] = dw_time_emb_linear, db_time_emb_linear
-
-        dtemb = self.time_emb_proj[0].backward(dtemb)
 
         dz_ = self.nonlinearity1.backward(dz_)
         
@@ -432,7 +430,7 @@ class UNetModel(Module):
 
         self.conv_norm_out = GroupNorm(num_groups=norm_num_groups, num_channels=block_out_channels[0])
         self.conv_act = SiLU()
-        self.conv_out = Conv2d(block_out_channels[0], out_channel=self.out_channels, kernel_size=1)
+        self.conv_out = Conv2d(block_out_channels[0], out_channel=self.out_channels, kernel_size=3, padding=1)
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
@@ -454,7 +452,6 @@ class UNetModel(Module):
             emb = temb + class_embeds
 
         # pre-process
-        skip_sample = sample.copy()
         sample = self.conv_in(sample)
 
         # down
@@ -504,15 +501,11 @@ class UNetModel(Module):
         sample = self.conv_norm_out(sample)
         sample = self.conv_act(sample)
         sample = self.conv_out(sample)
-        
-        sample += skip_sample
 
         return sample
     
     def backward(self, dz):
         dx, dw, db = np.zeros_like(dz), {}, {}
-
-        dz_skip_sample = dz.copy()
 
         # post-process
         dz, dw_conv_out, db_conv_out = self.conv_out.backward(dz)
@@ -667,9 +660,6 @@ class UNetModel(Module):
         dx, dw_conv_in, db_conv_in = self.conv_in.backward(dz_sample)
         dw['conv_in.weight'] = dw_conv_in
         db['conv_in.bias'] = db_conv_in
-        
-        # skip-connection
-        dx += dz_skip_sample
         
         # class embedding
         if self.num_class_embeds is not None:
