@@ -8,6 +8,7 @@ from .transformer import Transformer, TransformerEncoderLayer, TransformerDecode
 from .module import Module, Sequential, ModuleList
 from .norm import LayerNorm, GroupNorm
 from .diffusion import ResidualBlock, Attention, Upsample, UNetModel
+from .diffusion_scheduler import DDPMScheduler
 
 __all__ = [
     'Softmax', 'Sigmoid', 'ReLU', 'GELU', 'MultiHeadAttention', 'SiLU',
@@ -19,5 +20,6 @@ __all__ = [
     'Transformer', 'TransformerEncoderLayer', 'TransformerDecoderLayer', 'TransformerEncoder', 'TransformerDecoder',
     'Module', 'Sequential', 'ModuleList',
     'LayerNorm', 'GroupNorm',
-    'ResidualBlock', 'Attention', 'Upsample', 'UNetModel'
+    'ResidualBlock', 'Attention', 'Upsample', 'UNetModel',
+    'DDPMScheduler'
 ]
