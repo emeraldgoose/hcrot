@@ -39,6 +39,7 @@ class DDPMScheduler:
             beta_start: float = 0.0001,
             beta_end: float = 0.02,
             beta_schedule: str = "linear",
+            clip_sample_range: float = 1.0
     ):
         if beta_schedule == "linear":
             self.betas = np.linspace(beta_start, beta_end, num_train_timesteps, dtype=np.float32)
@@ -60,6 +61,7 @@ class DDPMScheduler:
         self.one = np.array(1.0)
 
         self.init_noise_sigma = 1.0
+        self.clip_sample_range = clip_sample_range
 
         self.custom_timesteps = False
         self.timesteps = np.arange(0, num_train_timesteps)[::-1]
@@ -93,22 +95,25 @@ class DDPMScheduler:
 
         # 2. compute predicted original sample from predicted noise also called
         # prediction_type = epsilon
-        pred_original_sample = (sample - (beta_prod_t ** (0.5)) * model_output) / alpha_prod_t ** (0.5)
+        pred_original_sample = (sample - beta_prod_t ** (0.5) * model_output) / alpha_prod_t ** (0.5)
 
-        # 3. Compute coefficients for pred_original_sample x_9 and current sample x_t
+        # 3. Clip prediction x_0
+        pred_original_sample = pred_original_sample.clip(-self.clip_sample_range, self.clip_sample_range)
+
+        # 4. Compute coefficients for pred_original_sample x_9 and current sample x_t
         pred_original_sample_coeff = (alpha_prod_t_prev ** (0.5) * current_beta_t) / beta_prod_t
         current_sample_coeff = current_alpha_t ** (0.5) * beta_prod_t_prev / beta_prod_t
 
-        # 4. Compute predicted previous sample u_t
+        # 5. Compute predicted previous sample u_t
         pred_prev_sample = pred_original_sample_coeff * pred_original_sample + current_sample_coeff * sample
         
-        # 5. Add noise
+        # 6. Add noise
         # variance_type: fixed_small
         variance = 0
         if t > 0:
             variance_noise = np.random.randn(*model_output.shape).astype(model_output.dtype)
             variance = (1 - alpha_prod_t_prev) / (1 - alpha_prod_t) * current_beta_t
-            variance = np.clip(variance, a_min=1e-20, a_max=None) * variance_noise
+            variance = (np.clip(variance, a_min=1e-20, a_max=None) ** 0.5) * variance_noise
         
         pred_prev_sample = pred_prev_sample + variance
 
