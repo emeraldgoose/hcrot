@@ -76,7 +76,7 @@ class Conv2d(Module):
     def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
     
-    def forward(self, x):
+    def forward(self, x: NDArray) -> NDArray:
         self.x = x
         B, _, H_in, W_in = x.shape
 
@@ -89,7 +89,7 @@ class Conv2d(Module):
         out = out.reshape(B, H_out, W_out, -1).transpose(0, 3, 1, 2) # (B, out_channels, H_out, W_out)
         return out
 
-    def backward(self, dz):
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
         dz_reshaped = dz.transpose(0, 2, 3, 1).reshape(-1, self.out_channel) # (B * H_out * W_out, out_channels)
         
         dw = self.col.T @ dz_reshaped # (in_channels * kernel_height * kernel_width, out_channels)

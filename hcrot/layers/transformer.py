@@ -2,7 +2,7 @@ import copy
 from typing import Optional
 import numpy as np
 from numpy.typing import NDArray
-from typing import Tuple, Mapping
+from typing import Tuple, Dict
 from .layer import Linear, Dropout
 from .norm import LayerNorm
 from .module import Module, ModuleList
@@ -46,7 +46,7 @@ class TransformerEncoderLayer(Module):
         
         return x
     
-    def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dw, db = {}, {}
         
         # Feed-Forward backward
@@ -137,7 +137,7 @@ class TransformerDecoderLayer(Module):
         
         return x
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dx, dw, db = dz, {}, {}
         
         dx, dw_norm3, db_norm3 = self.norm3.backward(dx)
@@ -213,7 +213,7 @@ class TransformerEncoder(Module):
         
         return output
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dx, dw, db = dz, {}, {}
         
         if self.norm is not None:
@@ -264,7 +264,7 @@ class TransformerDecoder(Module):
         
         return output
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         d_tgt, d_memory = dz, np.zeros(self.memory_shape)
         dw, db = {}, {}
         
@@ -336,7 +336,7 @@ class Transformer(Module):
         
         return output
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, Mapping[str, NDArray], Mapping[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dx, dw, db = dz, {}, {}
         
         dtgt, dmem, dw_, db_ = self.decoder.backward(dx)

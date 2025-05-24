@@ -89,7 +89,7 @@ class ResidualBlock(Module):
         
         return x + residual
     
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Optional[Dict[str,NDArray]], Optional[Dict[str,NDArray]]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str,NDArray], Dict[str,NDArray]]:
         dw, db = {}, {}
 
         dz_ = self.nonlinearity2.backward(dz)
@@ -176,7 +176,7 @@ class Attention(Module):
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
     
-    def forward(self, x: NDArray):
+    def forward(self, x: NDArray) -> NDArray:
         input_dim = x.ndim
         assert input_dim == 4, 'x.shape must be (batch_size, channel, height, width).'
 
@@ -228,7 +228,7 @@ class Attention(Module):
 
         return hidden_states
 
-    def backward(self, dz) -> Tuple[NDArray, Optional[Dict[str, NDArray]], Optional[Dict[str, NDArray]]]:
+    def backward(self, dz) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dw, db = {}, {}
         batch_size, channel, height, width = dz.shape
         input_dim = dz.ndim
@@ -435,7 +435,7 @@ class UNetModel(Module):
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
 
-    def forward(self, sample: Union[int, NDArray], timesteps: NDArray, class_labels: Optional[NDArray] = None):
+    def forward(self, sample: Union[int, NDArray], timesteps: NDArray, class_labels: Optional[NDArray] = None) -> NDArray:
         class_embeds = None
         if self.num_class_embeds is not None:
             class_embeds = self.class_embedding(class_labels)
@@ -504,7 +504,7 @@ class UNetModel(Module):
 
         return sample
     
-    def backward(self, dz):
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dx, dw, db = np.zeros_like(dz), {}, {}
 
         # post-process

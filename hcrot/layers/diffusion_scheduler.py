@@ -100,7 +100,7 @@ class DDPMScheduler:
         # 3. Clip prediction x_0
         pred_original_sample = pred_original_sample.clip(-self.clip_sample_range, self.clip_sample_range)
 
-        # 4. Compute coefficients for pred_original_sample x_9 and current sample x_t
+        # 4. Compute coefficients for pred_original_sample and current sample x_t
         pred_original_sample_coeff = (alpha_prod_t_prev ** (0.5) * current_beta_t) / beta_prod_t
         current_sample_coeff = current_alpha_t ** (0.5) * beta_prod_t_prev / beta_prod_t
 
