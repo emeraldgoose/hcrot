@@ -20,14 +20,6 @@ def softmax(x: NDArray, dim: Optional[int] = None):
 def _get_softmax_axis(ndim: int) -> int:
     return 0 if ndim in [0,1,3] else 1
 
-def convolve2d(a: NDArray, f: NDArray) -> NDArray:
-    # Ref: https://stackoverflow.com/a/43087771
-    a,f = np.array(a), np.array(f)
-    s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
-    strd = np.lib.stride_tricks.as_strided
-    subM = strd(a, shape = s, strides = a.strides * 2)
-    return np.einsum('ij,ijkl->kl', f, subM)
-
 def save(obj: Any, path: str) -> None:
     byte_string = pickle.dumps(obj)
     with open(path, mode='wb') as f:
@@ -62,3 +54,52 @@ def xavier_uniform_(weight: NDArray, gain: float = 1.0) -> NDArray:
     std = gain * math.sqrt(2.0 / float(fan_in + fan_out))
     a = math.sqrt(3.0) * std
     return np.random.uniform(-a, a, weight.shape)
+
+def interpolate(inputs: NDArray, scale_factor: Optional[int] = None, size: Optional[int] = None, mode: str = "nearest"):
+    if mode not in ("nearest"):
+        raise ValueError(f"Not supported mode: {mode}")
+
+    B, C, H_in, W_in = inputs.shape
+    H_out = np.floor(H_in * scale_factor).astype(np.int32) if scale_factor else size
+    W_out = np.floor(W_in * scale_factor).astype(np.int32) if scale_factor else size
+    out = np.zeros((B, C, H_out, W_out), dtype=inputs.dtype)
+
+    row_allocs = np.linspace(0, H_in, H_out, endpoint=False)
+    row_indices = np.floor(row_allocs).astype(int)
+
+    col_allocs = np.linspace(0, W_in, W_out, endpoint=False)
+    col_indices = np.floor(col_allocs).astype(int)
+
+    row_indices = np.clip(row_indices, 0, H_in - 1)
+    col_indices = np.clip(col_indices, 0, W_in - 1)
+
+    for n in range(B):
+        for c in range(C):
+            out[n,c] = inputs[n,c][row_indices[:, None], col_indices[None, :]]
+
+    return out
+
+def interpolate_backward(dz: NDArray, origin_x: NDArray, mode: str = "nearest"):
+    if mode not in ("nearest"):
+        raise ValueError(f"Not supported mode: {mode}")
+    
+    B, C, H_in, W_in = origin_x.shape
+    H_out, W_out = dz.shape[2:]
+    dx = np.zeros_like(origin_x)
+
+    row_allocs = np.linspace(0, H_in, H_out, endpoint=False)
+    row_indices = np.floor(row_allocs).astype(int)
+
+    col_allocs = np.linspace(0, W_in, W_out, endpoint=False)
+    col_indices = np.floor(col_allocs).astype(int)
+
+    row_indices = np.clip(row_indices, 0, H_in - 1)
+    col_indices = np.clip(col_indices, 0, W_in - 1)
+
+    (x, y) = np.meshgrid(row_indices, col_indices, indexing='ij')
+
+    for n in range(B):
+        for c in range(C):
+            np.add.at(dx[n,c], (x,y), dz[n,c])
+    
+    return dx

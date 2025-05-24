@@ -11,7 +11,7 @@ class Optimizer:
     
     def update(self, dz: NDArray) -> None:
         for name, module in reversed(self.net.sequential):
-            if isinstance(module, (Linear, Conv2d)):
+            if isinstance(module, (Linear, Conv2d, ConvTranspose2d)):
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
                 module.bias = self.weight_update(f'{name}.bias', module.bias, db, self.lr_rate)
@@ -31,6 +31,14 @@ class Optimizer:
                     module.get_submodule(module_name).__setattr__(param, new_weight)
             elif isinstance(module, TransformerEncoder):
                 dz, dw, db = module.backward(dz)
+                dw.update(db)
+                for k, v in dw.items():
+                    i = k.rindex('.')
+                    module_name, param = k[:i], k[i+1:]
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
+                    module.get_submodule(module_name).__setattr__(param, new_weight)
+            elif isinstance(module, UNetModel):
+                dz, dtemb, dw, db = module.backward(dz)
                 dw.update(db)
                 for k, v in dw.items():
                     i = k.rindex('.')
@@ -105,6 +113,48 @@ class Adam(Optimizer):
         return super().update(dz)
 
     def weight_update(self, id: int, weight: NDArray, grad: NDArray, lr_rate: float) -> NDArray:
+        self.m[id] = self.betas[0] * self.m[id] + (1 - self.betas[0]) * grad
+        self.v[id] = self.betas[1] * self.v[id] + (1 - self.betas[1]) * (grad ** 2)
+        m_hat = self.m[id] / (1 - self._pow(self.betas[0], self.t))
+        v_hat = self.v[id] / (1 - self._pow(self.betas[1], self.t))
+        m_hat = m_hat.astype(np.float32)
+        v_hat = v_hat.astype(np.float32)
+        return weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
+
+    def _pow(self, beta: float, t: int) -> float:
+        if t in self.memo[beta].keys():
+            return self.memo[beta][t]
+        
+        if t%2==0:
+            r = self._pow(beta, t//2)
+            self.memo[beta][t] = r * r
+            return self.memo[beta][t]
+        
+        r = self._pow(beta, t//2)
+        self.memo[beta][t] = r * r * beta
+        return self.memo[beta][t]
+
+class AdamW(Optimizer):
+    """Adaptive moment estimation with Weight Decay"""
+    def __init__(self, net: Module, lr_rate: float, betas: Tuple[float, float] = (0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01) -> None:
+        super().__init__(net, lr_rate)
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.m = self._initialize()
+        self.v = self._initialize()
+        self.memo = {
+            betas[0]: {0:1, 1:betas[0]},
+            betas[1]: {0:1, 1:betas[1]}
+        }
+        self.t = 0
+    
+    def update(self, dz: NDArray) -> None:
+        self.t += 1
+        return super().update(dz)
+    
+    def weight_update(self, id: int, weight: NDArray, grad: NDArray, lr_rate: float) -> NDArray:
+        weight = weight * (1 - lr_rate * self.weight_decay)
         self.m[id] = self.betas[0] * self.m[id] + (1 - self.betas[0]) * grad
         self.v[id] = self.betas[1] * self.v[id] + (1 - self.betas[1]) * (grad ** 2)
         m_hat = self.m[id] / (1 - self._pow(self.betas[0], self.t))

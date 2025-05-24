@@ -1,5 +1,6 @@
 from itertools import chain
 from typing import Union, TypeVar, Mapping, Optional, Iterable, Iterator
+import numpy as np
 from numpy.typing import NDArray
 from collections import OrderedDict
 
@@ -12,7 +13,7 @@ class Module:
         self.sequential = []
         self.training = True
 
-    def __setattr__(self, name: str, value: Union[str, int, T]) -> None:
+    def __setattr__(self, name: str, value: Union[str, int, T, NDArray]) -> None:
         super().__setattr__(name, value)
         if isinstance(value, Module):
             self._modules[name] = value
@@ -23,6 +24,8 @@ class Module:
             else:
                 self.add_parameters(name, value)
                 self.sequential.append((name, value))
+        elif isinstance(value, np.ndarray):
+            self.parameters[name] = value
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
@@ -53,10 +56,19 @@ class Module:
                 self.parameters[f'{prefix}.{param}'] = getattr(module, param)
         elif module._get_name() in ('ModuleList'):
             for i, mod in enumerate(module):
-                for param in mod.parameters.keys():
-                    mod_name, param_name = param.split('.')
-                    self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod.get_submodule(mod_name), param_name)
-        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder','Transformer'):
+                if isinstance(mod, ModuleList):
+                    _prefix = f"{prefix}.{i}"
+                    self.add_parameters(_prefix, mod)
+                else:
+                    for param in mod.parameters.keys():
+                        _idx = param.rfind('.')
+                        if _idx == -1:
+                            param_name = param
+                            self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod, param_name)
+                        else:
+                            mod_name, param_name = param[:_idx], param[_idx+1:]
+                            self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod.get_submodule(mod_name), param_name)
+        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder', 'Transformer', 'ResidualBlock', 'Attention', 'Upsample', 'UNetModel'):
             for param in module.parameters.keys():
                 i = param.rindex('.')
                 mod_name, param_name = param[:i], param[i+1:]
@@ -86,12 +98,11 @@ class Module:
 
     def load_state_dict(self, state_dict: Mapping[str, NDArray]) -> None:
         for param_name, value in state_dict.items():
+            if param_name not in self.parameters.keys():
+                raise KeyError(f'Missing key in state_dict: {param_name}')
+            
             param_name = param_name.split('.')
             module_name, weight_name = '.'.join(param_name[:-1]), param_name[-1]
-            
-            if module_name not in dict(self.sequential).keys():
-                raise KeyError(f'Missing key in state_dict: {module_name}')
-            
             module = self.get_submodule(module_name)
             
             weight_shape = module.__getattribute__(weight_name).shape
@@ -99,6 +110,7 @@ class Module:
             if weight_shape != value_shape:
                 raise RuntimeError(f'Size mismatch : expected {weight_shape} but found {value_shape}')
             
+            self.parameters['.'.join(param_name)] = value
             module.__setattr__(weight_name, value)
 
     def _get_name(self) -> str:
