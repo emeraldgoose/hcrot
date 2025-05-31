@@ -35,7 +35,7 @@ class ResidualBlock(Module):
             padding: int = 1,
             groups: int = 8,
             eps: float = 1e-5,
-    ):
+        ):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -134,7 +134,7 @@ class Attention(Module):
             rescale_output_factor: float = 1.0,
             only_cross_attention: bool = False,
             dropout: bool = 0.0,
-    ):
+        ):
         super().__init__()
         self.query_dim = query_dim
         self.heads = heads
@@ -291,7 +291,7 @@ class Upsample(Module):
             use_conv_transpose: bool = False,
             kernel_size: Optional[int] = None,
             padding: int = 1,
-    ):
+        ):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels or channels
@@ -357,7 +357,7 @@ class UNetModel(Module):
             attention_head_dim: Optional[int] = 8,
             freq_shift: int = 0,
             num_class_embeds: int = None,
-    ):
+        ):
         super().__init__()
         self.sample_size = sample_size
         self.in_channels = in_channels

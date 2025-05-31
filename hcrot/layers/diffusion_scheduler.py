@@ -40,7 +40,7 @@ class DDPMScheduler:
             beta_end: float = 0.02,
             beta_schedule: str = "linear",
             clip_sample_range: float = 1.0
-    ):
+        ):
         if beta_schedule == "linear":
             self.betas = np.linspace(beta_start, beta_end, num_train_timesteps, dtype=np.float32)
         elif beta_schedule == "scaled_linear":
@@ -72,7 +72,7 @@ class DDPMScheduler:
     def set_timesteps(
             self,
             num_inference_steps: Optional[int] = None,
-    ) -> None:
+        ) -> None:
         timesteps = np.linspace(0, self.num_train_timesteps - 1, num_inference_steps).round()[::-1].astype(np.int64)
         self.timesteps = timesteps
 
@@ -81,7 +81,7 @@ class DDPMScheduler:
             model_output: NDArray,
             timestep: NDArray,
             sample: NDArray
-    ) -> DDPMSchedulerOutput:
+        ) -> DDPMSchedulerOutput:
         t = timestep
         prev_t = self.previous_timestep(t)
 
@@ -124,7 +124,7 @@ class DDPMScheduler:
             original_samples: NDArray,
             noise: NDArray,
             timesteps: NDArray,
-    ) -> NDArray:
+        ) -> NDArray:
         sqrt_alpha_prod = self.alphas_cumprod[timesteps] ** 0.5
         sqrt_alpha_prod = sqrt_alpha_prod.flatten()
         while len(sqrt_alpha_prod.shape) < len(original_samples.shape):
