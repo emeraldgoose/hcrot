@@ -3,73 +3,85 @@ from typing import Tuple, Mapping
 from hcrot.utils import *
 from hcrot.layers import *
 
+def build_param_map(module, prefix=""):
+    param_map = {}
+    for name, submodule in module._modules.items():
+        full_name = f"{prefix}.{name}" if prefix else name
+        param_map[id(submodule)] = full_name
+        param_map.update(build_param_map(submodule, full_name))
+    return param_map
+
 class Optimizer:
     """Gradient Descent"""
     def __init__(self, model: Module, lr_rate: float) -> None:
         self.model = model
         self.lr_rate = lr_rate
-    
+
     def update(self, dz: NDArray) -> None:
-        for name, module in reversed(self.model.computational_graph):
+        param_map = build_param_map(self.model)
+
+        for id_, module in reversed(self.model.computational_graph):
+            name = param_map[id_]
+            
             if isinstance(module, (Linear, Conv2d, ConvTranspose2d)):
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
                 module.bias = self.weight_update(f'{name}.bias', module.bias, db, self.lr_rate)
+            
             elif isinstance(module, (RNN, LSTM)):
                 dz, dw, db = module.backward(dz)
-                dw.update(db)
-                for k, v in dw.items():
+                for k, v in {**dw, **db}.items():
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
                     module.__setattr__(k, new_weight)
+            
             elif isinstance(module, (Transformer, TransformerDecoder)):
-                dz, dtgt, dw, db = module.backward(dz)
-                dw.update(db)
-                for k, v in dw.items():
+                dz, _, dw, db = module.backward(dz)
+                for k, v in {**dw, **db}.items():
                     i = k.rindex('.')
                     module_name, param = k[:i], k[i+1:]
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
+            
             elif isinstance(module, TransformerEncoder):
                 dz, dw, db = module.backward(dz)
-                dw.update(db)
-                for k, v in dw.items():
+                for k, v in {**dw, **db}.items():
                     i = k.rindex('.')
                     module_name, param = k[:i], k[i+1:]
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
+            
             elif isinstance(module, UNetModel):
-                dz, dtemb, dw, db = module.backward(dz)
-                dw.update(db)
-                for k, v in dw.items():
+                dz, _, dw, db = module.backward(dz)
+                for k, v in {**dw, **db}.items():
                     i = k.rindex('.')
                     module_name, param = k[:i], k[i+1:]
                     new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
+            
             elif isinstance(module, Embedding):
                 dz, dw = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
+            
             elif isinstance(module, LayerNorm):
                 if module.elementwise_affine:
-                    if module.bias:
+                    if module.bias is not None:
                         dz, dw, db = module.backward(dz)
-                        dw.update(db)
-                        for k, v in dw.items():
-                            new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
-                            module.__setattr__(k, new_weight)
+                        module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
+                        module.bias = self.weight_update(f'{name}.bias', module.bias, db, self.lr_rate)
                     else:
                         dz, dw, _ = module.backward(dz)
                         module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
                 else:
                     dz, _, _ = module.backward(dz)
+            
             elif isinstance(module, GroupNorm):
                 if module.affine:
                     dz, dw, db = module.backward(dz)
-                    dw.update(db)
-                    for k, v in dw.items():
-                        new_weight = self.weight_update(f'{name}.{k}', getattr(module, k), v, self.lr_rate)
-                        module.__setattr__(k, new_weight)
+                    module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
+                    module.bias = self.weight_update(f'{name}.bias', module.bias, db, self.lr_rate)
                 else:
                     dz, _, _ = module.backward(dz)
+            
             else:
                 dz = module.backward(dz)
     
