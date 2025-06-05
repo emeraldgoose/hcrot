@@ -5,12 +5,12 @@ from hcrot.layers import *
 
 class Optimizer:
     """Gradient Descent"""
-    def __init__(self, net: Module, lr_rate: float) -> None:
-        self.net = net
+    def __init__(self, model: Module, lr_rate: float) -> None:
+        self.model = model
         self.lr_rate = lr_rate
     
     def update(self, dz: NDArray) -> None:
-        for name, module in reversed(self.net.sequential):
+        for name, module in reversed(self.model.computational_graph):
             if isinstance(module, (Linear, Conv2d, ConvTranspose2d)):
                 dz, dw, db = module.backward(dz)
                 module.weight = self.weight_update(f'{name}.weight', module.weight, dw, self.lr_rate)
@@ -77,7 +77,7 @@ class Optimizer:
         return weight - (lr_rate * grad)
     
     def _initialize(self) -> Mapping[str, NDArray]:
-        weights = {key : np.zeros_like(param) for key, param in self.net.parameters.items()}
+        weights = {key : np.zeros_like(param) for key, param in self.model.named_parameters()}
         return weights
 
 class SGD(Optimizer):
