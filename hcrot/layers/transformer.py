@@ -47,6 +47,7 @@ class TransformerEncoderLayer(Module):
     
     def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dw, db = {}, {}
+        parameter_keys = dict(self.named_parameters()).keys()
         
         # Feed-Forward backward
         dz, dw_norm2, db_norm2 = self.norm2.backward(dz)
@@ -72,15 +73,10 @@ class TransformerEncoderLayer(Module):
         
         dx = dx_ + dx_q + dx_k + dx_v
         
-        for k, v in dw_attn.items():
-            for param in self.parameters.keys():
+        for k, v in {**dw_attn, **db_attn}.items():
+            for param in parameter_keys:
                 if k in param:
                     dw[param] = v
-        
-        for k, v in db_attn.items():
-            for param in self.parameters.keys():
-                if k in param:
-                    db[param] = v
         
         return dx, dw, db
 
@@ -134,6 +130,7 @@ class TransformerDecoderLayer(Module):
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dx, dw, db = dz, {}, {}
+        parameter_keys = dict(self.named_parameters()).keys()
         
         dx, dw_norm3, db_norm3 = self.norm3.backward(dx)
         dw['norm3.weight'], db['norm3.bias'] = dw_norm3, db_norm3
@@ -154,15 +151,17 @@ class TransformerDecoderLayer(Module):
         
         dx_ = self.dropout2.backward(dx)
         (dx_q, dmem_k, dmem_v), dw_, db_ = self.multihead_attn.backward(dx_)
+        
         for k,v in dw_.items():
-            for param in self.parameters.keys():
+            for param in parameter_keys:
                 if k in param:
                     dw[param] = v
         
         for k,v in db_.items():
-            for param in self.parameters.keys():
+            for param in parameter_keys:
                 if k in param:
                     db[param] = v
+        
         dx = dx + dx_q
         dmem = dmem_k + dmem_v
         
@@ -171,15 +170,17 @@ class TransformerDecoderLayer(Module):
         
         dx_ = self.dropout1.backward(dx)
         (dx_q, dx_k, dx_v), dw_, db_ = self.self_attn.backward(dx_)
+        
         for k,v in dw_.items():
-            for param in self.parameters.keys():
+            for param in parameter_keys:
                 if k in param:
                     dw[param] = v
         
         for k,v in db_.items():
-            for param in self.parameters.keys():
+            for param in parameter_keys:
                 if k in param:
                     db[param] = v
+        
         dx = dx + (dx_q + dx_k + dx_v)
         
         return dx, dmem, dw, db
@@ -207,6 +208,7 @@ class TransformerEncoder(Module):
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dx, dw, db = dz, {}, {}
+        parameter_keys = dict(self.named_parameters()).keys()
         
         if self.norm is not None:
             dz, dw_norm, db_norm = self.norm.backward(dz)
@@ -214,13 +216,14 @@ class TransformerEncoder(Module):
         
         for i, mod in reversed(list(enumerate(self.layers))):
             dx, dw_, db_ = mod.backward(dx)
+            
             for k,v in dw_.items():
-                for param in self.parameters.keys():
+                for param in parameter_keys:
                     if f'{i}.{k}' in param:
                         dw[param] = v
             
             for k,v in db_.items():
-                for param in self.parameters.keys():
+                for param in parameter_keys:
                     if f'{i}.{k}' in param:
                         db[param] = v
         
@@ -253,9 +256,10 @@ class TransformerDecoder(Module):
         
         return output
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         d_tgt, d_memory = dz, np.zeros(self.memory_shape)
         dw, db = {}, {}
+        parameter_keys = dict(self.named_parameters()).keys()
         
         if self.norm is not None:
             dz, dw_norm, db_norm = self.norm.backward(dz)
@@ -264,13 +268,14 @@ class TransformerDecoder(Module):
         for i, mod in reversed(list(enumerate(self.layers))):
             d_tgt, d_memory_partial, dw_, db_ = mod.backward(d_tgt)
             d_memory += d_memory_partial
+            
             for k,v in dw_.items():
-                for param in self.parameters.keys():
+                for param in parameter_keys:
                     if f'{i}.{k}' in param:
                         dw[param] = v
             
             for k,v in db_.items():
-                for param in self.parameters.keys():
+                for param in parameter_keys:
                     if f'{i}.{k}' in param:
                         db[param] = v
         
@@ -322,28 +327,21 @@ class Transformer(Module):
         
         return output
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dx, dw, db = dz, {}, {}
+        parameter_keys = dict(self.named_parameters()).keys()
         
-        dtgt, dmem, dw_, db_ = self.decoder.backward(dx)
-        for k,v in dw_.items():
-            for param in self.parameters.keys():
+        dtgt, dmem, dw_decoder, db_decoder = self.decoder.backward(dx)
+        
+        dsrc, dw_encoder, db_encoder = self.encoder.backward(dmem)
+        
+        for k,v in {**dw_decoder, **dw_encoder}.items():
+            for param in parameter_keys:
                 if k in param:
                     dw[param] = v
         
-        for k,v in db_.items():
-            for param in self.parameters.keys():
-                if k in param:
-                    db[param] = v
-        
-        dsrc, dw_, db_ = self.encoder.backward(dmem)
-        for k,v in dw_.items():
-            for param in self.parameters.keys():
-                if k in param:
-                    dw[param] = v
-        
-        for k,v in db_.items():
-            for param in self.parameters.keys():
+        for k,v in {**db_decoder, **db_encoder}.items():
+            for param in parameter_keys:
                 if k in param:
                     db[param] = v
         
