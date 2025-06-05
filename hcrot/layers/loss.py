@@ -1,4 +1,5 @@
 from numpy.typing import NDArray
+
 from hcrot.utils import *
 
 class MSELoss:

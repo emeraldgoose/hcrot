@@ -1,13 +1,15 @@
 import copy
-from typing import Optional
+from typing import *
+from typing_extensions import *
+
 import numpy as np
 from numpy.typing import NDArray
-from typing import Tuple, Dict
+
 from .layer import Linear, Dropout
 from .norm import LayerNorm
 from .module import Module, ModuleList
 from .activation import MultiHeadAttention, GELU
-from ..utils import *
+from hcrot.utils import *
 
 class TransformerEncoderLayer(Module):
     def __init__(self,
@@ -29,9 +31,6 @@ class TransformerEncoderLayer(Module):
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.activation = GELU()
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
     
     def forward(self, src: NDArray, src_mask: Optional[NDArray] = None) -> NDArray:
         x = src
@@ -110,10 +109,6 @@ class TransformerDecoderLayer(Module):
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.dropout3 = Dropout(dropout)
-
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
     
     def forward(self,
                 tgt: NDArray,
@@ -199,9 +194,6 @@ class TransformerEncoder(Module):
         self.layers = _get_clone(encoder_layer, num_layers)
         self.norm = norm
         self.num_layers = num_layers
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
     
     def forward(self, src: NDArray, mask: Optional[NDArray] = None) -> NDArray:
         output = src
@@ -244,9 +236,6 @@ class TransformerDecoder(Module):
         self.layers = _get_clone(decoder_layer, num_layers)
         self.num_layers = num_layers
         self.norm = norm
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
     
     def forward(self,
                 tgt: NDArray, 
@@ -310,9 +299,6 @@ class Transformer(Module):
         self.d_model = d_model
         self.nhead = nhead
         self.batch_first = batch_first
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
     
     def forward(self,
                 src: NDArray,

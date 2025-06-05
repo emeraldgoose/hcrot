@@ -1,16 +1,16 @@
-from .module import Module
+from typing import *
+from typing_extensions import *
+
 from numpy.typing import NDArray
-from typing import Optional, Tuple
-from hcrot.utils import *
 import numpy as np
+
+from .module import Module, Parameter
+from hcrot.utils import *
 
 class Softmax(Module):
     def __init__(self, dim: int = -1) -> None:
         super().__init__()
         self.dim = dim
-    
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
 
     def forward(self, x: NDArray) -> NDArray:
         eps = 1e-8
@@ -52,12 +52,9 @@ class Sigmoid(Module):
     def __init__(self) -> None:
         super().__init__()
     
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
-
     def forward(self, x: NDArray) -> NDArray:
         self.X = x
-        return 1/(1+np.exp(-x))
+        return 1 / (1 + np.exp(-x))
 
     def backward(self, dz: NDArray) -> NDArray:
         x = self.forward(self.X)
@@ -66,9 +63,6 @@ class Sigmoid(Module):
 class ReLU(Module):
     def __init__(self) -> None:
         super().__init__()
-    
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
 
     def forward(self, x: NDArray) -> NDArray:
         self.mask = x > 0
@@ -80,9 +74,6 @@ class ReLU(Module):
 class GELU(Module):
     def __init__(self) -> None:
         super().__init__()
-    
-    def __call__(self, *args, **kwargs) -> NDArray:
-        return self.forward(*args, **kwargs)
     
     def forward(self, x: NDArray) -> NDArray:
         self.x = x
@@ -100,9 +91,6 @@ class GELU(Module):
 class SiLU(Module):
     def __init__(self) -> None:
         super().__init__()
-
-    def __call__(self, *args, **kwargs) -> NDArray:
-        return self.forward(*args, **kwargs)
 
     def forward(self, x: NDArray) -> NDArray:
         self.sigm = sigmoid(x)
@@ -133,26 +121,22 @@ class MultiHeadAttention(Module):
         self.head_dim = self.embed_dim // num_heads
         self.softmax = Softmax()
 
-        self.q_proj_weight = np.zeros((self.embed_dim, self.embed_dim))
-        self.k_proj_weight = np.zeros((self.embed_dim, self.kdim))
-        self.v_proj_weight = np.zeros((self.embed_dim, self.vdim))
-        self.q_proj_bias = np.zeros((self.embed_dim,))
-        self.k_proj_bias = np.zeros((self.embed_dim,))
-        self.v_proj_bias = np.zeros((self.embed_dim,))
-        self.out_proj_weight = np.zeros((self.embed_dim, self.embed_dim))
-        self.out_proj_bias = np.zeros((1, self.embed_dim))
-        self.param_names = ['q_proj_weight', 'k_proj_weight', 'v_proj_weight', 'q_proj_bias', 'k_proj_bias', 'v_proj_bias', 'out_proj_weight', 'out_proj_bias']
+        self.q_proj_weight = Parameter(np.zeros((self.embed_dim, self.embed_dim)))
+        self.k_proj_weight = Parameter(np.zeros((self.embed_dim, self.kdim)))
+        self.v_proj_weight = Parameter(np.zeros((self.embed_dim, self.vdim)))
+        self.q_proj_bias = Parameter(np.zeros((self.embed_dim,)))
+        self.k_proj_bias = Parameter(np.zeros((self.embed_dim,)))
+        self.v_proj_bias = Parameter(np.zeros((self.embed_dim,)))
+        self.out_proj_weight = Parameter(np.zeros((self.embed_dim, self.embed_dim)))
+        self.out_proj_bias = Parameter(np.zeros((1, self.embed_dim)))
         self.reset_paramters()
 
     def reset_paramters(self) -> None:
-        setattr(self, 'q_proj_weight', xavier_uniform_(self.q_proj_weight))
-        setattr(self, 'k_proj_weight', xavier_uniform_(self.k_proj_weight))
-        setattr(self, 'v_proj_weight', xavier_uniform_(self.v_proj_weight))
+        setattr(self, 'q_proj_weight', Parameter(xavier_uniform_(self.q_proj_weight)))
+        setattr(self, 'k_proj_weight', Parameter(xavier_uniform_(self.k_proj_weight)))
+        setattr(self, 'v_proj_weight', Parameter(xavier_uniform_(self.v_proj_weight)))
         sqrt_k = np.sqrt(1 / self.embed_dim)
-        setattr(self, 'out_proj_weight', np.random.uniform(-sqrt_k, sqrt_k, self.out_proj_weight.shape))
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+        setattr(self, 'out_proj_weight', Parameter(np.random.uniform(-sqrt_k, sqrt_k, self.out_proj_weight.shape)))
 
     def forward(
             self, 

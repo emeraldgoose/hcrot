@@ -1,7 +1,9 @@
-from .module import Module
-from typing import Union
+from typing import *
+
 from numpy.typing import NDArray
 import numpy as np
+
+from .module import Module
 
 class MaxPool2d(Module):
     def __init__(self, kernel_size: Union[int, tuple], stride: Union[int, tuple] = None) -> None:
@@ -18,9 +20,6 @@ class MaxPool2d(Module):
             self.stride = self.kernel_size
         elif isinstance(stride, int):
             self.stride = (stride, stride)
-    
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
 
     def forward(self, x: NDArray) -> NDArray:
         self.input_shape = x.shape
@@ -65,9 +64,6 @@ class AvgPool2d(Module):
             self.stride = self.kernel_size
         elif isinstance(stride, int):
             self.stride = (stride, stride)
-
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
 
     def forward(self, x: NDArray) -> NDArray:
         self.input_shape = x.shape
