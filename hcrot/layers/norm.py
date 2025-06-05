@@ -46,7 +46,7 @@ class LayerNorm(Module):
                 normalized += self.bias
         return normalized        
         
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Optional[NDArray], Optional[NDArray]]:
         dw, db = None, None
 
         E = dz.shape[-1]
@@ -122,7 +122,7 @@ class GroupNorm(Module):
         normalized = np.reshape(self.normalized, x.shape)
         return normalized
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Optional[NDArray], Optional[NDArray]]:
         dx, dw, db = np.zeros_like(self.input.shape), None, None
 
         dz = np.reshape(dz, (self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1))
