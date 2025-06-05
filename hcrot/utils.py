@@ -1,7 +1,9 @@
-from typing import Any, Mapping, Tuple, Union, Optional
+from typing import *
+from typing_extensions import *
+import pickle, os, math
+
 from numpy.typing import NDArray
 import numpy as np
-import pickle, os, math
 
 def one_hot_encoding(x: NDArray, y: NDArray) -> NDArray:
     ret = np.zeros_like(x)
