@@ -76,8 +76,8 @@ class Module:
 
         Module._forward_depth += 1
 
-        if Module._forward_depth > 1:
-            Module.computational_graph.append(self)
+        if self._forward_depth == 2:
+            Module.computational_graph.append((id(self), self))
 
         out = self.forward(*args, **kwargs)
 
@@ -85,11 +85,11 @@ class Module:
         return out
 
     def train(self):
-        for _, module in self._modules:
+        for _, module in self._modules.items():
             module.training = True
 
     def eval(self):
-        for _, module in self._modules:
+        for _, module in self._modules.items():
             module.training = False
 
     def state_dict(self) -> Mapping[str, NDArray]:
@@ -155,11 +155,6 @@ class Sequential(Module):
     
     def __call__(self, x: NDArray) -> NDArray:
         return self.forward(x)
-
-    def forward(self, x: NDArray) -> NDArray:
-        for module in self.args:
-            x = module(x)
-        return x
     
 class ModuleList(Module):
     def __init__(self, modules: Optional[Iterable[Module]] = None) -> None:
