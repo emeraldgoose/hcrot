@@ -1,35 +1,44 @@
 from itertools import chain
-from typing import Union, TypeVar, Mapping, Optional, Iterable, Iterator
+from collections import OrderedDict
+from typing import *
+from typing_extensions import *
+
 import numpy as np
 from numpy.typing import NDArray
-from collections import OrderedDict
 
 T = TypeVar("T", bound="Module")
 
+def _forward_unimplemented(self, *input: Any) -> None:
+    raise NotImplementedError(
+        f'Module [{type(self).__name__}] is missing the required "forward" function'
+    )
+
+class Parameter(np.ndarray):
+    def __new__(cls, data: np.ndarray):
+        obj = np.asarray(data).view(cls)
+        return obj
+    
+    def __array_wrap__(self, out_arr, context=None):
+        return np.asarray(out_arr)
+
 class Module:
+    computational_graph: List["Module"] = []
+    _forward_depth: int = 0
+    
     def __init__(self) -> None:
-        self._modules = OrderedDict()
-        self.parameters = OrderedDict()
-        self.sequential = []
+        self._modules: Dict[str, Module] = {}
+        self._parameters: Dict[str, Parameter] = {}
         self.training = True
 
-    def __setattr__(self, name: str, value: Union[str, int, T, NDArray]) -> None:
-        super().__setattr__(name, value)
+    def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Module):
             self._modules[name] = value
-            if isinstance(value, Sequential):
-                for i, module in enumerate(value):
-                    self.add_parameters(f'{name}.{str(i)}', module)
-                    self.sequential.append((f'{name}.{str(i)}', module))
-            else:
-                self.add_parameters(name, value)
-                self.sequential.append((name, value))
-        elif isinstance(value, np.ndarray):
-            self.parameters[name] = value
+        elif isinstance(value, Parameter):
+            self._parameters[name] = value
+        super().__setattr__(name, value)
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
-        
         if isinstance(self, Sequential):
             return self[target[0]]
         
@@ -47,71 +56,62 @@ class Module:
         
         return module
 
-    def add_module(self, name: str, module: T) -> None:
-        self._modules[name] = module
+    def parameters(self) -> Iterator[Parameter]:
+        return (param for _, param in self.named_parameters())
 
-    def add_parameters(self, prefix: str, module: T) -> None:
-        if module._get_name() in ('RNN', 'LSTM', 'MultiHeadAttention'):
-            for param in module.param_names:
-                self.parameters[f'{prefix}.{param}'] = getattr(module, param)
-        elif module._get_name() in ('ModuleList'):
-            for i, mod in enumerate(module):
-                if isinstance(mod, ModuleList):
-                    _prefix = f"{prefix}.{i}"
-                    self.add_parameters(_prefix, mod)
-                else:
-                    for param in mod.parameters.keys():
-                        _idx = param.rfind('.')
-                        if _idx == -1:
-                            param_name = param
-                            self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod, param_name)
-                        else:
-                            mod_name, param_name = param[:_idx], param[_idx+1:]
-                            self.parameters[f'{prefix}.{i}.{param}'] = getattr(mod.get_submodule(mod_name), param_name)
-        elif module._get_name() in ('TransformerEncoder', 'TransformerDecoder', 'Transformer', 'ResidualBlock', 'Attention', 'Upsample', 'UNetModel'):
-            for param in module.parameters.keys():
-                i = param.rindex('.')
-                mod_name, param_name = param[:i], param[i+1:]
-                self.parameters[f'{prefix}.{mod_name}.{param_name}'] = getattr(module.get_submodule(mod_name), param_name)
-        else:
-            if hasattr(module, 'weight'):
-                self.parameters[f'{prefix}.weight'] = getattr(module, 'weight')
-            
-            if hasattr(module, 'bias'):
-                self.parameters[f'{prefix}.bias'] = getattr(module, 'bias')
+    def named_parameters(self, prefix: str = '', recursive: bool = True) -> Iterator[Tuple[str, Parameter]]:
+        for name, param in self._parameters.items():
+            yield prefix + name, param
+        
+        if recursive:
+            for name, module in self._modules.items():
+                submodule_prefix = prefix + name + '.'
+                yield from module.named_parameters(submodule_prefix, recursive=True)
 
-    def train(self) -> None:
-        self.training = True
-        for _, module in self.sequential:
-            module.train()
+    forward: Callable[..., Any] = _forward_unimplemented
 
-    def eval(self) -> None:
-        self.training = False
-        for _, module in self.sequential:
-            module.eval()
+    def __call__(self, *args, **kwargs):
+        if Module._forward_depth == 0:
+            Module.computational_graph.clear()
+
+        Module._forward_depth += 1
+
+        if Module._forward_depth > 1:
+            Module.computational_graph.append(self)
+
+        out = self.forward(*args, **kwargs)
+
+        Module._forward_depth -= 1
+        return out
+
+    def train(self):
+        for _, module in self._modules:
+            module.training = True
+
+    def eval(self):
+        for _, module in self._modules:
+            module.training = False
 
     def state_dict(self) -> Mapping[str, NDArray]:
-        for module_name, _ in self.sequential:
-            module = self.get_submodule(module_name)
-            self.add_parameters(module_name, module)
-        return self.parameters
+        return {name: param.copy() for name, param in self.named_parameters()}
 
     def load_state_dict(self, state_dict: Mapping[str, NDArray]) -> None:
-        for param_name, value in state_dict.items():
-            if param_name not in self.parameters.keys():
-                raise KeyError(f'Missing key in state_dict: {param_name}')
+        named_params = dict(self.named_parameters())
+
+        for name, value in state_dict.items():
+            if name not in named_params:
+                raise KeyError(f'Missing key in state_dict: {name}')
             
-            param_name = param_name.split('.')
-            module_name, weight_name = '.'.join(param_name[:-1]), param_name[-1]
+            target_param = named_params[name]
+            if target_param.shape != value.shape:
+                raise RuntimeError(f'Size mismatch : expected {target_param.shape} but found {value.shape}')
+            
+            module_name, param_name = name.rsplit('.', 1)
             module = self.get_submodule(module_name)
-            
-            weight_shape = module.__getattribute__(weight_name).shape
-            value_shape = value.shape
-            if weight_shape != value_shape:
-                raise RuntimeError(f'Size mismatch : expected {weight_shape} but found {value_shape}')
-            
-            self.parameters['.'.join(param_name)] = value
-            module.__setattr__(weight_name, value)
+            module.__setattr__(param_name, Parameter(value))
+
+    def add_module(self, name: str, module: T) -> None:
+        self._modules[name] = module
 
     def _get_name(self) -> str:
         return self.__class__.__name__
