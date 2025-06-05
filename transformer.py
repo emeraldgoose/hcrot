@@ -48,7 +48,7 @@ def train(model, train_loader, criterion, optimizer):
     total_loss = 0
     for images, labels in tqdm(train_loader):
         tgt = np.zeros_like(images)
-        outputs = model.forward(images, tgt)
+        outputs = model(images, tgt)
         loss = criterion(outputs, labels)
         dz = criterion.backward()
         optimizer.update(dz)
@@ -61,7 +61,7 @@ def evaluate(model, test_loader, criterion):
     total = 0
     for images, labels in tqdm(test_loader):
         tgt = np.zeros_like(images)
-        outputs = model.forward(images, tgt)
+        outputs = model(images, tgt)
         loss = criterion(outputs, labels)
         total_loss += loss.item()
         predicted = outputs.argmax(1)

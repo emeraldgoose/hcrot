@@ -48,7 +48,7 @@ def train(args):
         loss_, correct = 0, 0
         for image, label in tqdm(dataloader):
             image = np.transpose(image, (1,0,2)) # (Length, Batch, Features)
-            pred = model.forward(image)
+            pred = model(image)
             loss = criterion(pred, label)
             dz = criterion.backward()
             optimizer.update(dz)
@@ -56,7 +56,7 @@ def train(args):
         
         for image, label in tqdm(testloader):
             image = np.transpose(image, (1,0,2))
-            pred = model.forward(image)
+            pred = model(image)
             correct += np.sum(np.argmax(pred,axis=1)==label)
 
         print(f'{epoch+1} / {args.epochs} | loss = {loss_/len(dataloader)} | ACC = {correct/(len(testloader)*len(label))}')

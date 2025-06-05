@@ -35,7 +35,7 @@ def train(args):
         # train
         model.train()
         for x, y in tqdm(dataloader):
-            pred = model.forward(x)
+            pred = model(x)
             loss = criterion(pred,y)
             dz = criterion.backward()
             optimizer.update(dz)
@@ -44,7 +44,7 @@ def train(args):
         # test
         model.eval()
         for x, y in tqdm(testloader):
-            pred = model.forward(x)
+            pred = model(x)
             correct += np.sum(np.argmax(pred,axis=1)==y)
 
         print(f'epoch = [{epoch+1}] | loss = {loss_/len(dataloader)} | ACC = {correct/(len(testloader)*len(y))}')

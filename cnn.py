@@ -31,7 +31,6 @@ def train(args):
     model = CNN()
     criterion = layers.CrossEntropyLoss()
     optimizer = optim.Adam(model,args.lr_rate)
-    
     for epoch in range(args.epochs):
         loss_, correct = 0, 0
         
@@ -39,7 +38,7 @@ def train(args):
         model.train()
         for x, y in tqdm(dataloader):
             x = np.array(x).reshape(-1,1,28,28) # (B,H,W,C) -> (B,C,H,W)
-            pred = model.forward(x)
+            pred = model(x)
             loss = criterion(pred,y)
             dz = criterion.backward()
             optimizer.update(dz)
