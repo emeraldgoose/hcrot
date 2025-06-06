@@ -86,7 +86,8 @@ class Optimizer:
                 dz = module.backward(dz)
     
     def weight_update(self, id: int, weight: NDArray, grad: NDArray, lr_rate: float) -> NDArray:
-        return weight - (lr_rate * grad)
+        updated_weight = weight - (lr_rate * grad)
+        return Parameter(updated_weight)
     
     def _initialize(self) -> Mapping[str, NDArray]:
         weights = {key : np.zeros_like(param) for key, param in self.model.named_parameters()}
@@ -104,7 +105,8 @@ class SGD(Optimizer):
 
     def weight_update(self, id: int, weight: NDArray, grad: NDArray, lr_rate: float) -> NDArray:
         self.v[id] = self.momentum * self.v[id] - lr_rate * grad
-        return weight + self.v[id]
+        updated_weight = weight + self.v[id]
+        return Parameter(updated_weight)
 
 class Adam(Optimizer):
     """Adaptive moment estimation"""
@@ -131,7 +133,8 @@ class Adam(Optimizer):
         v_hat = self.v[id] / (1 - self._pow(self.betas[1], self.t))
         m_hat = m_hat.astype(np.float32)
         v_hat = v_hat.astype(np.float32)
-        return weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
+        updated_weight = weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
+        return Parameter(updated_weight)
 
     def _pow(self, beta: float, t: int) -> float:
         if t in self.memo[beta].keys():
@@ -173,7 +176,8 @@ class AdamW(Optimizer):
         v_hat = self.v[id] / (1 - self._pow(self.betas[1], self.t))
         m_hat = m_hat.astype(np.float32)
         v_hat = v_hat.astype(np.float32)
-        return weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
+        updated_weight = weight - lr_rate * m_hat / (np.sqrt(v_hat) + self.eps)
+        return Parameter(updated_weight)
 
     def _pow(self, beta: float, t: int) -> float:
         if t in self.memo[beta].keys():
