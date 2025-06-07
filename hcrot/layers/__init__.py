@@ -5,7 +5,7 @@ from .conv import Conv2d, ConvTranspose2d
 from .pooling import MaxPool2d, AvgPool2d
 from .rnn import RNN, LSTM
 from .transformer import Transformer, TransformerEncoderLayer, TransformerDecoderLayer, TransformerEncoder, TransformerDecoder
-from .module import Module, Sequential, ModuleList
+from .module import Module, Sequential, ModuleList, Parameter
 from .norm import LayerNorm, GroupNorm
 from .diffusion import ResidualBlock, Attention, Upsample, UNetModel
 from .diffusion_scheduler import DDPMScheduler
@@ -18,7 +18,7 @@ __all__ = [
     'MaxPool2d', 'AvgPool2d',
     'RNN', 'LSTM',
     'Transformer', 'TransformerEncoderLayer', 'TransformerDecoderLayer', 'TransformerEncoder', 'TransformerDecoder',
-    'Module', 'Sequential', 'ModuleList',
+    'Module', 'Sequential', 'ModuleList', 'Parameter',
     'LayerNorm', 'GroupNorm',
     'ResidualBlock', 'Attention', 'Upsample', 'UNetModel',
     'DDPMScheduler'

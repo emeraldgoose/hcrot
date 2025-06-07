@@ -1,7 +1,7 @@
 from typing import Union, Tuple
 from numpy.typing import NDArray
 
-from .module import Module
+from .module import Module, Parameter
 from hcrot.utils import *
 
 def im2col(input_data, filter_h, filter_w, stride=1, padding=0):
@@ -70,11 +70,8 @@ class Conv2d(Module):
 
     def reset_parameters(self) -> None:
         sqrt_k = np.sqrt(1 / (self.in_channel * sum(self.kernel_size)))
-        setattr(self, 'weight', np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size)))
-        setattr(self, 'bias', np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1)))
-
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
+        setattr(self, 'weight', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size))))
+        setattr(self, 'bias', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1))))
     
     def forward(self, x: NDArray) -> NDArray:
         self.x = x
@@ -137,11 +134,8 @@ class ConvTranspose2d(Module):
 
     def reset_parameters(self) -> None:
         sqrt_k = np.sqrt(1 / (self.in_channels * np.sum(self.kernel_size)))
-        setattr(self, 'weight', np.random.uniform(-sqrt_k, sqrt_k, (self.in_channels, self.out_channels // self.groups, *self.kernel_size)))
-        setattr(self, 'bias', np.random.uniform(-sqrt_k, sqrt_k, (self.out_channels, 1)))
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+        setattr(self, 'weight', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.in_channels, self.out_channels // self.groups, *self.kernel_size))))
+        setattr(self, 'bias', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.out_channels, 1))))
 
     def forward(self, x: NDArray) -> NDArray:
         B, _, H_in, W_in = x.shape

@@ -70,9 +70,6 @@ class ResidualBlock(Module):
         self.nonlinearity1 = SiLU()
         self.nonlinearity2 = SiLU()
 
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
-
     def forward(self, x: NDArray, temb: NDArray) -> NDArray:
         residual = self.residual_conv(x)
 
@@ -172,9 +169,6 @@ class Attention(Module):
                 Dropout(dropout)
             ]
         )
-    
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
     
     def forward(self, x: NDArray) -> NDArray:
         input_dim = x.ndim
@@ -309,9 +303,6 @@ class Upsample(Module):
                 kernel_size = 3
             self.conv = Conv2d(self.channels, self.out_channels, kernel_size=kernel_size, padding=padding)
 
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
-
     def forward(self, hidden_states: NDArray, output_size: Optional[int] = None) -> NDArray:
         assert hidden_states.shape[1] == self.channels
 
@@ -431,9 +422,6 @@ class UNetModel(Module):
         self.conv_norm_out = GroupNorm(num_groups=norm_num_groups, num_channels=block_out_channels[0])
         self.conv_act = SiLU()
         self.conv_out = Conv2d(block_out_channels[0], out_channel=self.out_channels, kernel_size=3, padding=1)
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
 
     def forward(self, sample: Union[int, NDArray], timesteps: NDArray, class_labels: Optional[NDArray] = None) -> NDArray:
         class_embeds = None

@@ -1,9 +1,11 @@
+from typing import *
+from typing_extensions import *
+
 from numpy.typing import NDArray
-from typing import Tuple, Mapping, Optional
 import numpy as np
 
-from .module import Module
-from ..utils import sigmoid
+from .module import Module, Parameter
+from hcrot.utils import sigmoid
 
 class RNNBase(Module):
     def __init__(
@@ -31,12 +33,12 @@ class RNNBase(Module):
         for k in range(self.num_layers):
             self.param_names += [f'weight_ih_l{k}', f'weight_hh_l{k}', f'bias_ih_l{k}', f'bias_hh_l{k}']
             if not k:
-                setattr(self, f'weight_ih_l{k}', np.zeros((gate_size, self.input_size)))
+                setattr(self, f'weight_ih_l{k}', Parameter(np.zeros((gate_size, self.input_size))))
             else:
-                setattr(self, f'weight_ih_l{k}', np.zeros((gate_size, self.hidden_size)))
-            setattr(self, f'weight_hh_l{k}', np.zeros((gate_size, self.hidden_size)))
-            setattr(self, f'bias_ih_l{k}', np.zeros((gate_size,)))
-            setattr(self, f'bias_hh_l{k}', np.zeros((gate_size,)))
+                setattr(self, f'weight_ih_l{k}', Parameter(np.zeros((gate_size, self.hidden_size))))
+            setattr(self, f'weight_hh_l{k}', Parameter(np.zeros((gate_size, self.hidden_size))))
+            setattr(self, f'bias_ih_l{k}', Parameter(np.zeros((gate_size,))))
+            setattr(self, f'bias_hh_l{k}', Parameter(np.zeros((gate_size,))))
         
         self.reset_parameters()
 
@@ -44,9 +46,6 @@ class RNNBase(Module):
         sqrt_k = np.sqrt(1 / self.hidden_size)
         for key in self.param_names:
             setattr(self, key, np.random.uniform(-sqrt_k, sqrt_k, getattr(self,key).shape))
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
     
     def forward(self, x: NDArray):
         pass

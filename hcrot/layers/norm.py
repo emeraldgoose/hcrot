@@ -1,6 +1,9 @@
-from typing import Any, Union, List, Tuple
+from typing import *
+from typing_extensions import *
+
 from numpy.typing import NDArray
-from .module import Module
+
+from .module import Module, Parameter
 from hcrot.utils import *
 
 class LayerNorm(Module):
@@ -17,26 +20,21 @@ class LayerNorm(Module):
         self.eps = eps
         self.elementwise_affine = elementwise_affine
         
-        self.param_names = []
         self.weight = None
         self.bias = None
         if self.elementwise_affine:
-            self.weight = np.zeros(self.normalized_shape)
-            self.param_names.append('weight')
+            self.weight = Parameter(np.zeros(self.normalized_shape))
             if bias:
-                self.bias = np.zeros(self.normalized_shape)
-                self.param_names.append('bias')
+                self.bias = Parameter(np.zeros(self.normalized_shape))
+        self.input = None
 
         self.reset_parameters()
     
     def reset_parameters(self) -> None:
         if self.elementwise_affine:
-            setattr(self, 'weight', np.ones_like(self.weight))
+            setattr(self, 'weight', Parameter(np.ones_like(self.weight)))
             if self.bias is not None:
-                setattr(self, 'bias', np.zeros_like(self.bias))
-        
-    def __call__(self, *args, **kwargs) -> Any:
-        return self.forward(*args, **kwargs)
+                setattr(self, 'bias', Parameter(np.zeros_like(self.bias)))
     
     def forward(self, input: NDArray) -> NDArray:
         self.input = input
@@ -48,7 +46,7 @@ class LayerNorm(Module):
                 normalized += self.bias
         return normalized        
         
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Optional[NDArray], Optional[NDArray]]:
         dw, db = None, None
 
         E = dz.shape[-1]
@@ -94,18 +92,17 @@ class GroupNorm(Module):
         self.num_groups = num_groups
         self.num_channels = num_channels
         self.eps = eps
-        self.affine = affine
-        self.weight = np.ones((1, num_groups, num_channels // num_groups, 1))
-        self.bias = np.zeros((1, num_groups, num_channels // num_groups, 1))
         self.dims = (2,3)
+        
+        self.affine = affine
+        self.weight = Parameter(np.ones((1, num_groups, num_channels // num_groups, 1)))
+        self.bias = Parameter(np.zeros((1, num_groups, num_channels // num_groups, 1)))
+        
         self.input = None
         self.batch_size = None
         self.normalized = None
         self.mean = None
         self.variance = None
-
-    def __call__(self, *args, **kwargs) -> Any:
-        return self.forward(*args, **kwargs)
 
     def forward(self, x: NDArray) -> NDArray:
         if x.ndim < 2:
@@ -125,7 +122,7 @@ class GroupNorm(Module):
         normalized = np.reshape(self.normalized, x.shape)
         return normalized
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+    def backward(self, dz: NDArray) -> Tuple[NDArray, Optional[NDArray], Optional[NDArray]]:
         dx, dw, db = np.zeros_like(self.input.shape), None, None
 
         dz = np.reshape(dz, (self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1))
