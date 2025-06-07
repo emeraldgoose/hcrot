@@ -85,12 +85,14 @@ class Module:
         return out
 
     def train(self):
+        self.training = True
         for _, module in self._modules.items():
-            module.training = True
+            module.train()
 
     def eval(self):
+        self.training = False
         for _, module in self._modules.items():
-            module.training = False
+            module.eval()
 
     def state_dict(self) -> Mapping[str, NDArray]:
         return {name: param.copy() for name, param in self.named_parameters()}
