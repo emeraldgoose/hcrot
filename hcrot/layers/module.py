@@ -94,10 +94,10 @@ class Module:
         for _, module in self._modules.items():
             module.eval()
 
-    def state_dict(self) -> Mapping[str, NDArray]:
+    def state_dict(self) -> Dict[str, NDArray]:
         return {name: param.copy() for name, param in self.named_parameters()}
 
-    def load_state_dict(self, state_dict: Mapping[str, NDArray]) -> None:
+    def load_state_dict(self, state_dict: Dict[str, NDArray]) -> None:
         named_params = dict(self.named_parameters())
 
         for name, value in state_dict.items():
@@ -154,9 +154,6 @@ class Sequential(Module):
     
     def __getitem__(self, idx: Union[int, str]) -> T:
         return self.args[int(idx)]
-    
-    def __call__(self, x: NDArray) -> NDArray:
-        return self.forward(x)
     
 class ModuleList(Module):
     def __init__(self, modules: Optional[Iterable[Module]] = None) -> None:
