@@ -3,26 +3,7 @@
 
 ## Requirements
 ```
-pip install tqdm
-```
-
-## Example code
-The mnist_test.csv file in /datasets is used as the dataset.
-```shell
-# MLP
-python mlp.py --lr_rate 1e-2 --hidden_size 10 --epochs 10
-
-# CNN
-python cnn.py --lr_rate 1e-1 --epochs 10
-
-# RNN
-python rnn.py --model rnn --lr_rate 1e-3 --hidden_size 256 --epochs 10
-
-# LSTM
-python rnn.py --model lstm --lr_rate 1e-3 --hidden_size 256 --epochs 10
-
-# Transformer
-python transformer.py --lr_rate 1e-4 --hidden_size 256 --epochs 10
+pip install numpy pandas tqdm
 ```
 
 ## Problem
