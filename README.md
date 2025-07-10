@@ -11,7 +11,7 @@ Softmax and Sigmoid have a process of calculating in square form like e^i. If th
 > Error Message `Overflow (34, Numerical result out of range)`
 
 ## Post
-| Layer | Link | notebook |
+| Model | Link | notebook |
 |-|-|-|
 | MLP | [Link](https://emeraldgoose.github.io/pytorch/dl-implement/) | [notebook](./notebooks/mlp.ipynb) |
 | CNN | [Link](https://emeraldgoose.github.io/pytorch/cnn-implementation/) | [notebook](./notebooks/cnn.ipynb) |
