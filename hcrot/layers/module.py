@@ -49,8 +49,12 @@ class Module:
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
+
         if isinstance(self, Sequential):
-            return self[target[0]]
+            module = self[int(target[0])]
+            if len(target) > 0:
+                return module.get_submodule('.'.join(target[1:]))
+            return self[int(target[0])]
         
         if isinstance(self, ModuleList):
             module: T = self[int(target[0])]
