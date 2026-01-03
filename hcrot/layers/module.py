@@ -37,6 +37,16 @@ class Module:
             self._parameters[name] = value
         super().__setattr__(name, value)
 
+    def __getattr__(self, name: str) -> Union[Parameter, "Module"]:
+        if "_parameters" in self.__dict__:
+            _parameters = self.__dict__["_parameters"]
+            if name in _parameters:
+                return _parameters[name]
+        if "_modules" in self.__dict__:
+            modules = self.__dict__["_modules"]
+            if name in modules:
+                return modules[name]
+
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
         if isinstance(self, Sequential):
@@ -155,6 +165,11 @@ class Sequential(Module):
     def __getitem__(self, idx: Union[int, str]) -> T:
         return self.args[int(idx)]
     
+    def forward(self, input):
+        for module in self:
+            input = module(input)
+        return input
+    
 class ModuleList(Module):
     def __init__(self, modules: Optional[Iterable[Module]] = None) -> None:
         super().__init__()
@@ -218,3 +233,64 @@ class ModuleList(Module):
         main_str += '\n  ' + '\n  '.join(lines) + '\n'
         main_str += ')'
         return main_str
+
+class ModuleDict(Module):
+    _modules: dict[str, Module]
+
+    def __init__(self, modules: Optional[Mapping[str, Module]] = None) -> None:
+        super().__init__()
+        if modules is not None:
+            self.update(modules)
+    
+    def __getitem__(self, key: str) -> Module:
+        return self._modules[key]
+
+    def __setitem__(self, key: str, module: Module) -> None:
+        self.add_module(key, module)
+
+    def __delitem__(self, key: str) -> None:
+        del self._modules[key]
+
+    def __len__(self) -> int:
+        return len(self._modules)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._modules)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._modules
+
+    def clear(self) -> None:
+        self._modules.clear()
+    
+    def pop(self, key: str) -> Module:
+        v = self[key]
+        del self[key]
+        return v
+
+    def keys(self):
+        return self._modules.keys()
+
+    def items(self) -> ItemsView[str, Module]:
+        return self._modules.items()
+    
+    def values(self) -> ValuesView[Module]:
+        return self._modules.values()
+
+    def update(self, modules: Mapping[str, Module]) -> None:
+        if isinstance(modules, (OrderedDict, ModuleDict, Mapping)):
+            for key, module in modules.items():
+                self[key] = module
+        else:
+            for j, m in enumerate(modules):
+                if not isinstance(m, Iterable):
+                    raise TypeError(
+                        "ModuleDict update sequence element "
+                        "#" + str(j) + " should be Iteralbe; is" + type(m).__name__
+                    )
+                if not len(m) == 2:
+                    raise ValueError(
+                        "ModuleDict update sequence element "
+                        "#" + str(j) + " has length " + str(len(m)) + "; 2 is required"
+                    )
+                self[m[0]] = m[1]
