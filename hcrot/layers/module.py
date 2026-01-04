@@ -46,6 +46,7 @@ class Module:
             modules = self.__dict__["_modules"]
             if name in modules:
                 return modules[name]
+        raise AttributeError(f"{type(self).__name__} has no attribute '{name}'")
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
