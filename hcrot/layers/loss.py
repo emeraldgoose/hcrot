@@ -30,16 +30,45 @@ class MSELoss:
             raise TypeError()
 
 class CrossEntropyLoss:
-    def __call__(self, y_pred: NDArray, y_true: NDArray) -> NDArray:
-        if y_true.dtype == np.float64:
-            raise ValueError('expected scalar type Long but found float')
-        return self.forward(y_pred, y_true)
+    def __init__(self, ignore_index: int = -100, reduction: str = "mean"):
+        if reduction != "mean":
+            raise NotImplementedError("Only reduction='mean' is supported")
 
-    def forward(self, y_pred: NDArray, y_true: NDArray) -> NDArray:
-        self.B = y_pred.shape[0]
-        self.enc = one_hot_encoding(y_pred, y_true)
-        self.s = softmax(y_pred)
-        return np.sum(-np.log(self.s) * self.enc) / self.B
+        self.ignore_index = ignore_index
+        self.reduction = reduction
+
+    def __call__(self, input: NDArray, target: NDArray) -> NDArray:
+        if target.dtype not in (np.int32, np.int64):
+            raise ValueError("expected scalar type Long")
+
+        return self.forward(input, target)
+
+    def forward(self, input: NDArray, target: NDArray) -> NDArray:
+        if input.ndim == 3:
+            B, T, V = input.shape
+            logits = input.reshape(B * T, V)
+            target = target.reshape(B * T)
+        else:
+            logits = input
+            V = logits.shape[1]
+
+        self.mask = target != self.ignore_index
+        self.valid_count = np.sum(self.mask)
+
+        logits = logits - np.max(logits, axis=1, keepdims=True)
+        self.probs = np.exp(logits)
+        self.probs /= np.sum(self.probs, axis=1, keepdims=True)
+
+        log_probs = -np.log(self.probs[np.arange(len(target)), target])
+        loss = log_probs[self.mask].sum() / self.valid_count
+
+        self.target = target
+        return loss
 
     def backward(self) -> NDArray:
-        return (self.s - self.enc) / self.B
+        dlogits = self.probs.copy()
+        dlogits[np.arange(len(self.target)), self.target] -= 1
+        dlogits /= self.valid_count
+
+        dlogits[~self.mask] = 0
+        return dlogits

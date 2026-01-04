@@ -39,7 +39,7 @@ class Optimizer:
                 for k, v in {**dw, **db}.items():
                     i = k.rindex('.')
                     module_name, param = k[:i], k[i+1:]
-                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name), param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
             
             elif isinstance(module, TransformerEncoder):
@@ -47,7 +47,7 @@ class Optimizer:
                 for k, v in {**dw, **db}.items():
                     i = k.rindex('.')
                     module_name, param = k[:i], k[i+1:]
-                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name), param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
             
             elif isinstance(module, UNetModel):
@@ -55,7 +55,7 @@ class Optimizer:
                 for k, v in {**dw, **db}.items():
                     i = k.rindex('.')
                     module_name, param = k[:i], k[i+1:]
-                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name),param), v, self.lr_rate)
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name), param), v, self.lr_rate)
                     module.get_submodule(module_name).__setattr__(param, new_weight)
             
             elif isinstance(module, Embedding):
@@ -82,6 +82,22 @@ class Optimizer:
                 else:
                     dz, _, _ = module.backward(dz)
             
+            elif isinstance(module, GPTBlock):
+                dz, dw, db = module.backward(dz)
+                for k, v in {**dw, **db}.items():
+                    i = k.rindex('.')
+                    module_name, param = k[:i], k[i+1:]
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name), param), v, self.lr_rate)
+                    module.get_submodule(module_name).__setattr__(param, new_weight)
+            
+            elif isinstance(module, GPTEmbedding):
+                dw = module.backward(dz)
+                for k, v in dw.items():
+                    i = k.rindex('.')
+                    module_name, param = k[:i], k[i+1:]
+                    new_weight = self.weight_update(f'{name}.{k}', getattr(module.get_submodule(module_name), param), v, self.lr_rate)
+                    module.get_submodule(module_name).__setattr__(param, new_weight)
+
             else:
                 dz = module.backward(dz)
     
