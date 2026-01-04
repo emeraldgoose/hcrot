@@ -63,7 +63,6 @@ class FeedForward(Module):
 
         return dx, dw, db
 
-
 class GPTBlock(Module):
     def __init__(self, embed_dim, num_heads):
         super().__init__()
