@@ -2,7 +2,12 @@ from typing import *
 from typing_extensions import *
 
 from numpy.typing import NDArray
-import numpy as np
+try:
+    import cupy as np
+    IS_CUDA = True
+except ImportError:
+    import numpy as np
+    IS_CUDA = False
 
 from .module import Module, Parameter
 from hcrot.utils import *

@@ -1,4 +1,9 @@
-import numpy as np
+try:
+    import cupy as np
+    IS_CUDA = True
+except ImportError:
+    import numpy as np
+    IS_CUDA = False
 
 def finite_difference_grad_check(model, input_sample, timesteps, epsilon=1e-5, atol=1e-4, rtol=1e-2):
     # Step 1: Forward pass

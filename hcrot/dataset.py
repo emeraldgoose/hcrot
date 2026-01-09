@@ -1,7 +1,13 @@
-from numpy.typing import NDArray
-from typing import Tuple
 import random
-import numpy as np
+from typing import Tuple
+
+from numpy.typing import NDArray
+try:
+    import cupy as np
+    IS_CUDA = True
+except ImportError:
+    import numpy as np
+    IS_CUDA = False
 
 class Dataloader:
     def __init__(self, X: NDArray, y: NDArray, batch_size: int = 1, shuffle: bool = True) -> None:

@@ -1,7 +1,12 @@
 from typing_extensions import *
 from dataclasses import dataclass
 
-import numpy as np
+try:
+    import cupy as np
+    IS_CUDA = True
+except ImportError:
+    import numpy as np
+    IS_CUDA = False
 from numpy.typing import *
 
 import hcrot

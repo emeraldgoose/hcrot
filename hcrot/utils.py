@@ -3,7 +3,12 @@ from typing_extensions import *
 import pickle, os, math
 
 from numpy.typing import NDArray
-import numpy as np
+try:
+    import cupy as np
+    IS_CUDA = True
+except ImportError:
+    import numpy as np
+    IS_CUDA = False
 
 def one_hot_encoding(x: NDArray, y: NDArray) -> NDArray:
     ret = np.zeros_like(x)

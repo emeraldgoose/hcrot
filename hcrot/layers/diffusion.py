@@ -1,6 +1,11 @@
 from typing_extensions import *
 
-import numpy as np
+try:
+    import cupy as np
+    IS_CUDA = True
+except ImportError:
+    import numpy as np
+    IS_CUDA = False
 from numpy.typing import NDArray
 
 from .layer import Linear, Identity, Dropout, Embedding
