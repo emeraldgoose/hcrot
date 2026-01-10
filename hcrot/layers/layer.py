@@ -41,7 +41,7 @@ class Linear(Module):
             dw = np.sum(dw, axis=0)
         # Sum over all dimensions except the last one for db
         # np.arange will be cupy.arange if IS_CUDA is True
-        db = np.sum(dz, axis=tuple(np.arange(len(dz.shape))[:-1]))
+        db = np.sum(dz, axis=tuple(range(dz.ndim - 1)))
         dx = np.matmul(dz, self.weight.swapaxes(-1,-2))
         return dx, dw, db
 
@@ -99,7 +99,7 @@ class Embedding(Module):
     def forward(self, x: NDArray) -> NDArray:
         self.x = x
         # Direct indexing of CuPy arrays is efficient on GPU
-        return self.weight.data[x] # Access .data of Parameter
+        return self.weight[x] # Access .data of Parameter
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray]:
         # Initialize gradient array on GPU

@@ -40,9 +40,9 @@ class LayerNorm(Module):
         if self.elementwise_affine:
             # Reset parameters on GPU
             # Access .data attribute of Parameter to get the underlying CuPy array
-            setattr(self, 'weight', Parameter(cp.ones_like(self.weight.data)))
+            setattr(self, 'weight', Parameter(cp.ones_like(self.weight)))
             if self.bias is not None:
-                setattr(self, 'bias', Parameter(cp.zeros_like(self.bias.data)))
+                setattr(self, 'bias', Parameter(cp.zeros_like(self.bias)))
 
     def forward(self, input: NDArray) -> NDArray:
         self.input = input # Input is expected to be a CuPy array
@@ -58,9 +58,9 @@ class LayerNorm(Module):
 
         if self.elementwise_affine:
             # Apply affine transformation using CuPy arrays
-            normalized *= self.weight.data
+            normalized *= self.weight
             if self.bias is not None:
-                normalized += self.bias.data
+                normalized += self.bias
         return normalized
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, Optional[NDArray], Optional[NDArray]]:
@@ -72,7 +72,7 @@ class LayerNorm(Module):
         sum_axes_for_affine = tuple(i for i in range(self.input.ndim) if i not in normalized_axes)
 
         # E is the total number of elements in the normalized dimensions
-        E = cp.prod(self.normalized_shape)
+        E = cp.prod(cp.array(self.normalized_shape)).item()
 
         # Flatten input, mean, variance, std, and x_hat for gradient calculations
         # This reshaping ensures element-wise operations align correctly
@@ -94,7 +94,7 @@ class LayerNorm(Module):
         # Gradient with respect to normalized input (x_hat)
         grad_xhat = dz
         if self.elementwise_affine:
-            grad_xhat *= self.weight.data # Apply weight gradient
+            grad_xhat *= self.weight # Apply weight gradient
 
         grad_xhat_flat = grad_xhat.reshape(-1, E)
 

@@ -198,9 +198,9 @@ class MultiHeadAttention(Module):
         d_attn_output = d_attn_output.reshape(self.attn_output_transposed.shape).transpose(1,2,0,3)
         dQ, dK, dV = self.scaled_dot_product_attention_backward(d_attn_output)
 
-        dQ = dQ.reshape(np.prod(dQ.shape[:2]), *dQ.shape[2:]).swapaxes(0,1) # (tgt_len, bsz * num_heads, head_dim)
-        dK = dK.reshape(np.prod(dK.shape[:2]), *dK.shape[2:]).swapaxes(0,1) # (src_len, bsz * num_heads, head_dim)
-        dV = dV.reshape(np.prod(dV.shape[:2]), *dV.shape[2:]).swapaxes(0,1) # (src_len, bsz * num_heads, head_dim)
+        dQ = dQ.reshape(math.prod(dQ.shape[:2]), *dQ.shape[2:]).swapaxes(0,1) # (tgt_len, bsz * num_heads, head_dim)
+        dK = dK.reshape(math.prod(dK.shape[:2]), *dK.shape[2:]).swapaxes(0,1) # (src_len, bsz * num_heads, head_dim)
+        dV = dV.reshape(math.prod(dV.shape[:2]), *dV.shape[2:]).swapaxes(0,1) # (src_len, bsz * num_heads, head_dim)
 
         dQ = dQ.reshape(-1, bsz, self.embed_dim) # (tgt_len, bsz, embed_dim)
         dK = dK.reshape(-1, bsz, self.embed_dim) # (src_len, bsz, embed_dim)
