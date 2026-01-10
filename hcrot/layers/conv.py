@@ -99,7 +99,7 @@ def col2im(col: cp.ndarray, input_shape: Tuple[int, int, int, int], filter_h: in
     col_flat = col_transposed.ravel()
 
     # Perform the accumulation using cupy.scatter_add for efficient GPU operation
-    cp.scatter_add(img_grad, (b_idx_flat, c_idx_flat, img_h_idx_flat, img_w_idx_flat), col_flat)
+    img_grad.scatter_add((b_idx_flat, c_idx_flat, img_h_idx_flat, img_w_idx_flat), col_flat)
 
     # Crop the padding from the accumulated gradient image
     return img_grad[:, :, pad_h : H_in + pad_h, pad_w : W_in + pad_w]
@@ -146,9 +146,9 @@ class Conv2d(Module):
         # Use the optimized im2col function
         self.col = im2col(x, self.kernel_size[0], self.kernel_size[1], self.stride, self.padding)
         # Access underlying CuPy array from Parameter and reshape
-        self.col_W = self.weight.data.reshape(self.out_channel, -1).T
+        self.col_W = self.weight.reshape(self.out_channel, -1).T
         # Perform matrix multiplication and bias addition on GPU
-        out = self.col @ self.col_W + self.bias.data.T
+        out = self.col @ self.col_W + self.bias.T
 
         # Output dimensions calculation
         H_out = (H_in + 2*self.padding[0] - self.kernel_size[0]) // self.stride[0] + 1

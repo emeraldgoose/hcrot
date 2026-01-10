@@ -167,21 +167,21 @@ class GroupNorm(Module):
 
         if self.affine:
             # Apply affine transformation using CuPy arrays
-            self.normalized *= self.weight.data
-            self.normalized += self.bias.data
+            self.normalized *= self.weight
+            self.normalized += self.bias
 
         # Reshape back to original input shape
         normalized_output = cp.reshape(self.normalized, x.shape)
         return normalized_output
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, Optional[NDArray], Optional[NDArray]]:
-        dx, dw, db = None, None
+        dw, db = None, None
 
         # Reshape dz to match the grouped normalization shape
         dz_reshaped = cp.reshape(dz, (self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1))
 
         # E is the number of elements per group (C_per_group * H * W)
-        E = cp.prod(dz_reshaped.shape[2:])
+        E = cp.prod(cp.asarray(dz_reshaped.shape[2:])).item()
 
         # Original input reshaped for group operations
         x_reshaped = cp.reshape(self.input, (self.batch_size, self.num_groups, self.num_channels // self.num_groups, -1))
@@ -201,7 +201,7 @@ class GroupNorm(Module):
             db = cp.sum(dz_reshaped, axis=dw_db_sum_axes, keepdims=True)
             db = db.reshape(self.bias.shape) # Ensure db shape matches self.bias
 
-            grad_xhat = dz_reshaped * self.weight.data # Apply weight gradient
+            grad_xhat = dz_reshaped * self.weight # Apply weight gradient
         else:
             grad_xhat = dz_reshaped
 

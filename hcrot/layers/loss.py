@@ -8,18 +8,18 @@ class MSELoss:
         return self.forward(y_pred, y_true)
 
     def forward(self, y_pred: NDArray, y_true: Union[NDArray[cp.int_], NDArray[cp.float64]]) -> NDArray:
-        self.y_pred = y_pred
-        self.y_true = y_true
+        self.y_pred = cp.asarray(y_pred)
+        self.y_true = cp.asarray(y_true)
         self.B = y_pred.shape[0]
 
-        if y_true.dtype == cp.int_:
+        if self.y_true.dtype == cp.int_:
             # Note: The one_hot_encoding function from hcrot.utils must be compatible with CuPy arrays.
             # If it uses NumPy internally, it will need to be refactored to use CuPy.
-            self.enc = one_hot_encoding(y_pred, y_true)
+            self.enc = cp.asarray(one_hot_encoding(y_pred.get(), y_true.get()))
             squared_errors = cp.power(y_pred - self.enc, 2)
             return squared_errors.mean()
-        elif y_true.dtype == cp.float_:
-            squared_errors = cp.power(y_pred - y_true, 2)
+        elif self.y_true.dtype == cp.float_:
+            squared_errors = cp.power(y_pred - self.y_true, 2)
             return squared_errors.mean()
         else:
             raise TypeError("Unsupported target dtype for MSELoss")

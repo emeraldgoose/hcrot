@@ -1,12 +1,7 @@
 from typing_extensions import *
 from dataclasses import dataclass
 
-try:
-    import cupy as np
-    IS_CUDA = True
-except ImportError:
-    import numpy as np
-    IS_CUDA = False
+import numpy as np
 from numpy.typing import *
 
 import hcrot
@@ -140,7 +135,7 @@ class DDPMScheduler:
         while len(sqrt_one_minus_alpha_prod.shape) < len(original_samples.shape):
             sqrt_one_minus_alpha_prod = sqrt_one_minus_alpha_prod[..., np.newaxis]
 
-        noisy_samples = sqrt_alpha_prod * original_samples + sqrt_one_minus_alpha_prod * noise
+        noisy_samples = sqrt_alpha_prod * original_samples.get() + sqrt_one_minus_alpha_prod * noise
         return noisy_samples
 
     def previous_timestep(self, timestep: int) -> NDArray:

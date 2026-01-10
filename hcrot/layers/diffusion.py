@@ -7,6 +7,7 @@ try:
     # The numpy.typing.NDArray type hint primarily targets static analysis for NumPy.
     # At runtime, `isinstance(arr, np.ndarray)` will correctly check for cupy.ndarray
     # if `np` is aliased to `cupy`.
+    import numpy
 except ImportError:
     import numpy as np
     IS_CUDA = False
