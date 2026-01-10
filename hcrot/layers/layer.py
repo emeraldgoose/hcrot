@@ -6,7 +6,7 @@ try:
 except ImportError:
     import numpy as np
     IS_CUDA = False
-from numpy.typing import NDArray
+from numpy.typing import NDArray # This type hint refers to numpy.ndarray, but cupy.ndarray is duck-type compatible.
 
 from .module import Module, Parameter
 
@@ -15,25 +15,32 @@ class Linear(Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Parameter(np.zeros((self.in_features, self.out_features)))
-        self.bias = Parameter(np.zeros((1, self.out_features)))
+        # Initialize weights and biases on the appropriate device (CPU or GPU)
+        self.weight = Parameter(np.zeros((self.in_features, self.out_features), dtype=np.float32))
+        self.bias = Parameter(np.zeros((1, self.out_features), dtype=np.float32))
         self.X = None
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
+        # Use CuPy's random number generator for GPU
         sqrt_k = np.sqrt(1 / self.in_features)
-        setattr(self, 'weight', Parameter(np.random.uniform(-sqrt_k, sqrt_k, self.weight.shape)))
-        setattr(self, 'bias', Parameter(np.random.uniform(-sqrt_k, sqrt_k, self.bias.shape)))
+        setattr(self, 'weight', Parameter(np.random.uniform(-sqrt_k, sqrt_k, self.weight.shape).astype(np.float32)))
+        setattr(self, 'bias', Parameter(np.random.uniform(-sqrt_k, sqrt_k, self.bias.shape).astype(np.float32)))
 
     def forward(self, x: NDArray) -> NDArray:
         self.X = x
+        # Matrix multiplication and addition are highly optimized in CuPy for GPU
         mat = np.matmul(x, self.weight)
         return mat + self.bias
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+        # All operations are performed on GPU if CuPy is active
         dw = np.matmul(self.X.swapaxes(-1,-2), dz)
         if dw.ndim == 3:
+            # Sum over the batch dimension for dw
             dw = np.sum(dw, axis=0)
+        # Sum over all dimensions except the last one for db
+        # np.arange will be cupy.arange if IS_CUDA is True
         db = np.sum(dz, axis=tuple(np.arange(len(dz.shape))[:-1]))
         dx = np.matmul(dz, self.weight.swapaxes(-1,-2))
         return dx, dw, db
@@ -53,18 +60,20 @@ class Flatten(Module):
     def forward(self, x: NDArray) -> NDArray:
         size_ = x.shape
         self.origin_shape = size_
-        
+
         if self.end_dim == -1:
             self.end_dim = len(size_)-1
-        
+
         if self.start_dim == self.end_dim:
             return x
-        
+
         shape = list(x.shape)
+        # np.prod works with CuPy arrays and Python lists of integers
         new_size = shape[:self.start_dim] + [np.prod(shape[self.start_dim:self.end_dim+1])] + shape[self.end_dim+1:]
         return np.reshape(x, new_size)
 
     def backward(self, dz: NDArray) -> NDArray:
+        # np.reshape works directly with CuPy arrays
         return np.reshape(dz, self.origin_shape)
 
     def extra_repr(self) -> str:
@@ -81,17 +90,23 @@ class Embedding(Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        self.weight = Parameter(np.random.normal(0, 1, (self.num_embeddings, self.embedding_dim)))
+        # Use CuPy's random number generator for GPU
+        self.weight = Parameter(np.random.normal(0, 1, (self.num_embeddings, self.embedding_dim)).astype(np.float32))
         if self.padding_idx is not None:
-            self.weight[self.padding_idx].fill(0)
+            # Setting padding_idx to zero on the GPU
+            self.weight.data[self.padding_idx].fill(0) # Access .data of Parameter
 
     def forward(self, x: NDArray) -> NDArray:
         self.x = x
-        return self.weight[x]
+        # Direct indexing of CuPy arrays is efficient on GPU
+        return self.weight.data[x] # Access .data of Parameter
 
-    def backward(self, dz: NDArray) -> NDArray:
-        dw = np.zeros((self.num_embeddings, self.embedding_dim))
-        dw[self.x] = dz
+    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray]:
+        # Initialize gradient array on GPU
+        dw = np.zeros((self.num_embeddings, self.embedding_dim), dtype=np.float32)
+        # Use np.add.at for efficient and correct gradient accumulation
+        # This handles cases where self.x contains duplicate indices, summing their gradients.
+        np.add.at(dw, self.x, dz)
         return None, dw
 
     def extra_repr(self) -> str:
@@ -117,21 +132,23 @@ class Dropout(Module):
         if not self.training:
             return x
 
-        self.mask = np.random.binomial(1, self.scale_factor, x.shape)
+        # Use CuPy's random number generator for GPU for mask generation
+        self.mask = np.random.binomial(1, self.scale_factor, x.shape).astype(np.float32)
         return x * self.mask / self.scale_factor
 
     def backward(self, dz: NDArray) -> NDArray:
+        # Element-wise operations are efficient on GPU
         return dz * self.mask / self.scale_factor
 
     def extra_repr(self) -> str:
         return 'p={}'.format(self.p)
-    
+
 class Identity(Module):
     def __init__(self):
         super().__init__()
 
     def forward(self, input: NDArray) -> NDArray:
         return input
-    
+
     def backward(self, dz: NDArray) -> NDArray:
         return dz

@@ -1,58 +1,122 @@
 from typing import Union, Tuple
-from numpy.typing import NDArray
-
+import cupy as cp # Changed from numpy to cupy
 from .module import Module, Parameter
-from hcrot.utils import *
+from hcrot.utils import * # This might import numpy as np, ensure operations within this block use cp
 
-def im2col(input_data, filter_h, filter_w, stride=1, padding=0):
-    """Image to Column"""
+# Removed: from numpy.typing import NDArray
+
+def im2col(input_data: cp.ndarray, filter_h: int, filter_w: int, stride: Union[int,Tuple] = 1, padding: Union[int,Tuple] = 0) -> cp.ndarray:
+    """Image to Column for CuPy (optimized for GPU)"""
     B, C, H_in, W_in = input_data.shape
-    H_out = (H_in + 2*padding[0] - filter_h) // stride[0] + 1
-    W_out = (W_in + 2*padding[1] - filter_w) // stride[1] + 1
 
-    img = np.pad(input_data, [(0,0), (0,0), (padding[0], padding[0]), (padding[1], padding[1])], 'constant')
-    col = np.zeros((B, C, filter_h, filter_w, H_out, W_out))
+    # Ensure stride and padding are tuples for consistent indexing
+    if isinstance(stride, int):
+        stride_h, stride_w = (stride, stride)
+    else:
+        stride_h, stride_w = stride
 
-    for y in range(filter_h):
-        y_max = y + stride[0]*H_out
-        for x in range(filter_w):
-            x_max = x + stride[1]*W_out
-            col[:, :, y, x, :, :] = img[:, :, y:y_max:stride[1], x:x_max:stride[1]]
+    if isinstance(padding, int):
+        pad_h, pad_w = (padding, padding)
+    else:
+        pad_h, pad_w = padding
 
+    H_padded = H_in + 2 * pad_h
+    W_padded = W_in + 2 * pad_w
+
+    # Calculate output dimensions (number of patches)
+    H_out = (H_padded - filter_h) // stride_h + 1
+    W_out = (W_padded - filter_w) // stride_w + 1
+
+    # Pad input image
+    img = cp.pad(input_data, ((0, 0), (0, 0), (pad_h, pad_h), (pad_w, pad_w)), mode='constant')
+
+    # Get strides from the padded image for use with as_strided
+    s_B, s_C, s_H, s_W = img.strides
+
+    # Define the shape and strides for the 'col' matrix view
+    # This creates a 6D tensor view (Batch, Channels, FilterHeight, FilterWidth, OutputHeight, OutputWidth)
+    shape = (B, C, filter_h, filter_w, H_out, W_out)
+    strides = (s_B, s_C,                 # Batch, Channels
+               s_H, s_W,                 # Filter height, Filter width (relative position within a kernel)
+               s_H * stride_h,           # Step for output height (sliding window in H)
+               s_W * stride_w)           # Step for output width (sliding window in W)
+
+    # Create the column matrix view using cupy's stride tricks
+    col = cp.lib.stride_tricks.as_strided(img, shape=shape, strides=strides)
+
+    # Reshape to (B * H_out * W_out, C * filter_h * filter_w)
     col = col.transpose(0, 4, 5, 1, 2, 3).reshape(B * H_out * W_out, -1)
     return col
 
-def col2im(col, input_shape, filter_h, filter_w, stride=1, padding=0):
-    """Column to Image"""
+def col2im(col: cp.ndarray, input_shape: Tuple[int, int, int, int], filter_h: int, filter_w: int, stride: Union[int,Tuple] = 1, padding: Union[int,Tuple] = 0) -> cp.ndarray:
+    """Column to Image for CuPy (optimized for GPU)"""
     B, C, H_in, W_in = input_shape
-    H_out = (H_in + 2 * padding[0] - filter_h) // stride[0] + 1
-    W_out = (W_in + 2 * padding[1] - filter_w) // stride[1] + 1
-    col = col.reshape(B, H_out, W_out, C, filter_h, filter_w).transpose(0, 3, 4, 5, 1, 2)
 
-    img = np.zeros((B, C, H_in + 2 * padding[0] + stride[0] - 1, W_in + 2 * padding[1] + stride[1] - 1))
+    # Ensure stride and padding are tuples
+    if isinstance(stride, int):
+        stride_h, stride_w = (stride, stride)
+    else:
+        stride_h, stride_w = stride
 
-    for y in range(filter_h):
-        y_max = y + stride[0]*H_out
-        for x in range(filter_w):
-            x_max = x + stride[1]*W_out
-            img[:, :, y:y_max:stride[0], x:x_max:stride[1]] += col[:, :, y, x, :, :]
+    if isinstance(padding, int):
+        pad_h, pad_w = (padding, padding)
+    else:
+        pad_h, pad_w = padding
 
-    return img[:, :, padding[0]:H_in+padding[0], padding[1]:W_in+padding[1]]
+    # Calculate output dimensions (number of patches)
+    H_padded = H_in + 2 * pad_h
+    W_padded = W_in + 2 * pad_w
+
+    H_out = (H_padded - filter_h) // stride_h + 1
+    W_out = (W_padded - filter_w) // stride_w + 1
+
+    # Reshape col back to 6D: (B, H_out, W_out, C, filter_h, filter_w)
+    col_reshaped = col.reshape(B, H_out, W_out, C, filter_h, filter_w)
+
+    # Transpose to (B, C, filter_h, filter_w, H_out, W_out) to match im2col's internal structure
+    col_transposed = col_reshaped.transpose(0, 3, 4, 5, 1, 2)
+
+    # Determine the actual size needed for the accumulation buffer, as in the original `col2im`
+    img_grad_H = H_in + 2 * pad_h + stride_h - 1
+    img_grad_W = W_in + 2 * pad_w + stride_w - 1
+
+    # Initialize gradient image (padded) with zeros on GPU
+    img_grad = cp.zeros((B, C, img_grad_H, img_grad_W), dtype=col.dtype)
+
+    # Generate indices for scattering the gradients back to the image.
+    # For each element `col_transposed[b, c, kh, kw, oh, ow]`, it adds to `img_grad[b, c, y, x]`
+    # where y = oh * stride_h + kh and x = ow * stride_w + kw
+    b_idx, c_idx, kh_idx, kw_idx, oh_idx, ow_idx = cp.indices(col_transposed.shape)
+
+    img_h_idx = oh_idx * stride_h + kh_idx
+    img_w_idx = ow_idx * stride_w + kw_idx
+
+    # Reshape all index arrays and the values from `col_transposed` to flat 1D arrays for `cupy.scatter_add`
+    b_idx_flat = b_idx.ravel()
+    c_idx_flat = c_idx.ravel()
+    img_h_idx_flat = img_h_idx.ravel()
+    img_w_idx_flat = img_w_idx.ravel()
+    col_flat = col_transposed.ravel()
+
+    # Perform the accumulation using cupy.scatter_add for efficient GPU operation
+    cp.scatter_add(img_grad, (b_idx_flat, c_idx_flat, img_h_idx_flat, img_w_idx_flat), col_flat)
+
+    # Crop the padding from the accumulated gradient image
+    return img_grad[:, :, pad_h : H_in + pad_h, pad_w : W_in + pad_w]
 
 class Conv2d(Module):
     def __init__(
-            self, 
-            in_channel: int, 
-            out_channel: int, 
-            kernel_size: Union[int,tuple], 
-            stride: Union[int,tuple] = 1, 
+            self,
+            in_channel: int,
+            out_channel: int,
+            kernel_size: Union[int,tuple],
+            stride: Union[int,tuple] = 1,
             padding: Union[int,tuple] = 0
         ) -> None:
-        # default group = 1, dilation = 1
         super().__init__()
         self.in_channel = in_channel
         self.out_channel = out_channel
-        
+
         self.kernel_size = kernel_size
         if isinstance(kernel_size, int):
             self.kernel_size = (kernel_size, kernel_size)
@@ -60,41 +124,51 @@ class Conv2d(Module):
         self.stride = stride
         if isinstance(stride, int):
             self.stride = (stride, stride)
-        
+
         self.padding = padding
         if isinstance(padding, int):
             self.padding = (padding, padding)
-        
+
         self.reset_parameters()
-        self.X = None
+        self.x = None # Renamed for consistency with self.x in forward
 
     def reset_parameters(self) -> None:
-        sqrt_k = np.sqrt(1 / (self.in_channel * sum(self.kernel_size)))
-        setattr(self, 'weight', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size))))
-        setattr(self, 'bias', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1))))
-    
-    def forward(self, x: NDArray) -> NDArray:
+        # Use cp for random initialization and calculations
+        sqrt_k = cp.sqrt(1 / (self.in_channel * cp.sum(cp.array(self.kernel_size))))
+        # Initialize weights and bias as CuPy arrays, wrapped by Parameter
+        setattr(self, 'weight', Parameter(cp.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, self.in_channel, *self.kernel_size), dtype=cp.float32)))
+        setattr(self, 'bias', Parameter(cp.random.uniform(-sqrt_k, sqrt_k, (self.out_channel, 1), dtype=cp.float32)))
+
+    def forward(self, x: cp.ndarray) -> cp.ndarray: # Type hint for CuPy array
         self.x = x
         B, _, H_in, W_in = x.shape
 
-        self.col = im2col(x, self.kernel_size[0], self.kernel_size[1], self.stride, self.padding) # (B * H_out * W_out, in_channels * kernel_height * kernel_width)
-        self.col_W = self.weight.reshape(self.out_channel, -1).T # (in_channels * kernel_height * kernel_width, out_channels)
-        out = self.col @ self.col_W + self.bias.T # (B * H_out * W_out, out_channels)
+        # Use the optimized im2col function
+        self.col = im2col(x, self.kernel_size[0], self.kernel_size[1], self.stride, self.padding)
+        # Access underlying CuPy array from Parameter and reshape
+        self.col_W = self.weight.data.reshape(self.out_channel, -1).T
+        # Perform matrix multiplication and bias addition on GPU
+        out = self.col @ self.col_W + self.bias.data.T
+
+        # Output dimensions calculation
         H_out = (H_in + 2*self.padding[0] - self.kernel_size[0]) // self.stride[0] + 1
         W_out = (W_in + 2*self.padding[1] - self.kernel_size[1]) // self.stride[1] + 1
 
-        out = out.reshape(B, H_out, W_out, -1).transpose(0, 3, 1, 2) # (B, out_channels, H_out, W_out)
+        out = out.reshape(B, H_out, W_out, -1).transpose(0, 3, 1, 2)
         return out
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
-        dz_reshaped = dz.transpose(0, 2, 3, 1).reshape(-1, self.out_channel) # (B * H_out * W_out, out_channels)
-        
-        dw = self.col.T @ dz_reshaped # (in_channels * kernel_height * kernel_width, out_channels)
-        dw = dw.transpose(1, 0).reshape(self.weight.shape) # (out_channels, in_channels, kernel_height, kernel_width)
-        
-        db = np.sum(dz_reshaped, axis=0).reshape(self.bias.shape)
+    def backward(self, dz: cp.ndarray) -> Tuple[cp.ndarray, cp.ndarray, cp.ndarray]: # Type hint for CuPy array
+        dz_reshaped = dz.transpose(0, 2, 3, 1).reshape(-1, self.out_channel)
+
+        # Calculations performed on GPU
+        dw = self.col.T @ dz_reshaped
+        dw = dw.transpose(1, 0).reshape(self.weight.shape)
+
+        # Use cp.sum for GPU-accelerated sum
+        db = cp.sum(dz_reshaped, axis=0).reshape(self.bias.shape)
 
         dcol = dz_reshaped @ self.col_W.T
+        # Use the optimized col2im function
         dx = col2im(dcol, self.x.shape, *self.kernel_size, self.stride, self.padding)
 
         return dx, dw, db
@@ -104,11 +178,11 @@ class Conv2d(Module):
         if self.padding:
             s += ', padding={}'.format(self.padding)
         return s
-  
+
 class ConvTranspose2d(Module):
     def __init__(
-            self, 
-            in_channels: int, 
+            self,
+            in_channels: int,
             out_channels: int,
             kernel_size: Union[int, Tuple],
             stride: Union[int, Tuple] = 1,
@@ -123,91 +197,124 @@ class ConvTranspose2d(Module):
 
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.kernel_size = (kernel_size,kernel_size)
-        self.stride = (stride,stride)
-        self.padding = (padding,padding)
-        self.out_padding = (out_padding,out_padding)
-        self.dilation = (dilation,dilation)
+
+        # Convert all size parameters to tuples for consistency
+        self.kernel_size = (kernel_size, kernel_size) if isinstance(kernel_size, int) else kernel_size
+        self.stride = (stride, stride) if isinstance(stride, int) else stride
+        self.padding = (padding, padding) if isinstance(padding, int) else padding
+        self.out_padding = (out_padding, out_padding) if isinstance(out_padding, int) else out_padding
+        self.dilation = (dilation, dilation) if isinstance(dilation, int) else dilation
+
         self.groups = groups
         self.X = None
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        sqrt_k = np.sqrt(1 / (self.in_channels * np.sum(self.kernel_size)))
-        setattr(self, 'weight', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.in_channels, self.out_channels // self.groups, *self.kernel_size))))
-        setattr(self, 'bias', Parameter(np.random.uniform(-sqrt_k, sqrt_k, (self.out_channels, 1))))
+        # Use cp for random initialization and calculations
+        sqrt_k = cp.sqrt(1 / (self.in_channels * cp.sum(cp.array(self.kernel_size))))
+        # Initialize weights and bias as CuPy arrays, wrapped by Parameter
+        setattr(self, 'weight', Parameter(cp.random.uniform(-sqrt_k, sqrt_k, (self.in_channels, self.out_channels // self.groups, *self.kernel_size), dtype=cp.float32)))
+        setattr(self, 'bias', Parameter(cp.random.uniform(-sqrt_k, sqrt_k, (self.out_channels, 1), dtype=cp.float32)))
 
-    def forward(self, x: NDArray) -> NDArray:
+    def forward(self, x: cp.ndarray) -> cp.ndarray: # Type hint for CuPy array
         B, _, H_in, W_in = x.shape
         self.X = x
 
-        H_out = (H_in - 1) * self.stride[0] - 2 * self.padding[0] + self.dilation[0] * (self.kernel_size[0] - 1) + self.out_padding[0] + 1
-        W_out = (W_in - 1) * self.stride[1] - 2 * self.padding[1] + self.dilation[1] * (self.kernel_size[1] - 1) + self.out_padding[1] + 1
+        stride_h, stride_w = self.stride
+        pad_h, pad_w = self.padding
+        dilation_h, dilation_w = self.dilation
+        kernel_h, kernel_w = self.kernel_size
+        out_pad_h, out_pad_w = self.out_padding
 
-        expanded_h = (H_in - 1) * self.stride[0] + 1
-        expanded_w = (W_in - 1) * self.stride[1] + 1
-        expanded_x = np.zeros((B, self.in_channels, expanded_h, expanded_w))
-        expanded_x[:, :, ::self.stride[0], ::self.stride[1]] = x
+        H_out = (H_in - 1) * stride_h - 2 * pad_h + dilation_h * (kernel_h - 1) + out_pad_h + 1
+        W_out = (W_in - 1) * stride_w - 2 * pad_w + dilation_w * (kernel_w - 1) + out_pad_w + 1
 
-        flipped_weights = np.flip(np.flip(self.weight, axis=2), axis=3)
+        expanded_h = (H_in - 1) * stride_h + 1
+        expanded_w = (W_in - 1) * stride_w + 1
 
-        padding_h = self.kernel_size[0] - 1 - self.padding[0]
-        padding_w = self.kernel_size[1] - 1 - self.padding[1]
+        # Use cp.zeros for GPU array
+        expanded_x = cp.zeros((B, self.in_channels, expanded_h, expanded_w), dtype=x.dtype)
+        expanded_x[:, :, ::stride_h, ::stride_w] = x
 
-        padded_x = np.pad(expanded_x, ((0, 0), (0, 0), (padding_h, padding_h), (padding_w, padding_w)), 'constant')
+        # Use cp.flip for GPU-accelerated flip
+        flipped_weights = cp.flip(cp.flip(self.weight.data, axis=2), axis=3) # Access .data
 
-        col = im2col(padded_x, self.kernel_size[0], self.kernel_size[1], stride=(1, 1), padding=(0, 0))
+        padding_h = kernel_h - 1 - pad_h
+        padding_w = kernel_w - 1 - pad_w
 
+        # Use cp.pad for GPU-accelerated padding
+        padded_x = cp.pad(expanded_x, ((0, 0), (0, 0), (padding_h, padding_h), (padding_w, padding_w)), 'constant')
+
+        # Use the optimized im2col function
+        col = im2col(padded_x, kernel_h, kernel_w, stride=(1, 1), padding=(0, 0))
+
+        # Use cp.prod for GPU-accelerated product
         reshaped_weight = flipped_weights.reshape(
-            self.in_channels, self.out_channels // self.groups, np.prod(self.kernel_size)
-            ) # (C_out, C_in//groups * kh * kw)
+            self.in_channels, self.out_channels // self.groups, cp.prod(cp.array(self.kernel_size))
+            )
         reshaped_weight = reshaped_weight.transpose(1, 0, 2).reshape(self.out_channels, -1)
 
-        col_out = col @ reshaped_weight.T # (B * H_out * W_out, C_out)
-        
+        col_out = col @ reshaped_weight.T
+
         output = col_out.reshape(B, H_out, W_out, self.out_channels).transpose(0, 3, 1, 2)
 
-        for c_out in range(self.out_channels):
-            output[:, c_out, :, :] += self.bias[c_out]
+        # Vectorized bias addition for GPU performance
+        output += self.bias.data.reshape(1, self.out_channels, 1, 1)
 
         return output
 
-    def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+    def backward(self, dz: cp.ndarray) -> Tuple[cp.ndarray, cp.ndarray, cp.ndarray]: # Type hint for CuPy array
         B = dz.shape[0]
         _, _, H_in, W_in = self.X.shape
 
-        db = np.sum(dz, axis=(0, 2, 3))
+        # Use cp.sum for GPU-accelerated sum
+        db = cp.sum(dz, axis=(0, 2, 3))
 
-        dz_reshaped = dz.transpose(0, 2, 3, 1).reshape(-1, self.out_channels) # (B * H_out * W_out, out_channels)
+        dz_reshaped = dz.transpose(0, 2, 3, 1).reshape(-1, self.out_channels)
 
-        expanded_h = (H_in - 1) * self.stride[0] + 1
-        expanded_w = (W_in - 1) * self.stride[1] + 1
-        expanded_x = np.zeros((B, self.in_channels, expanded_h, expanded_w))
-        expanded_x[:, :, ::self.stride[0], ::self.stride[1]] = self.X
+        stride_h, stride_w = self.stride
+        pad_h, pad_w = self.padding
+        # dilation_h, dilation_w = self.dilation # Not used in backward for this logic
+        kernel_h, kernel_w = self.kernel_size
+        # out_pad_h, out_pad_w = self.out_padding # Not used in backward for this logic
 
-        padding_h = self.kernel_size[0] - 1 - self.padding[0]
-        padding_w = self.kernel_size[1] - 1 - self.padding[1]
-        padded_x = np.pad(expanded_x, ((0, 0), (0, 0), (padding_h, padding_h), (padding_w, padding_w)), 'constant')
+        expanded_h = (H_in - 1) * stride_h + 1
+        expanded_w = (W_in - 1) * stride_w + 1
 
-        col = im2col(padded_x, self.kernel_size[0], self.kernel_size[1], stride=(1, 1), padding=(0, 0))
+        # Use cp.zeros for GPU array
+        expanded_x = cp.zeros((B, self.in_channels, expanded_h, expanded_w), dtype=self.X.dtype)
+        expanded_x[:, :, ::stride_h, ::stride_w] = self.X
 
-        dW_mat = dz_reshaped.T @ col # (out_channels, in_channels * kernel_height * kernel_width)
+        padding_h = kernel_h - 1 - pad_h
+        padding_w = kernel_w - 1 - pad_w
 
-        dw = dW_mat.reshape(self.out_channels, self.in_channels, *self.kernel_size).transpose(1, 0, 2, 3) # (in_channels, out_channels, kernel_height, kernel_width)
-        dw = np.flip(np.flip(dw, axis=2), axis=3)
+        # Use cp.pad for GPU-accelerated padding
+        padded_x = cp.pad(expanded_x, ((0, 0), (0, 0), (padding_h, padding_h), (padding_w, padding_w)), 'constant')
 
-        flipped_weights = np.flip(np.flip(self.weight, axis=2), axis=3) # (in_channels, out_channels // groups, kernel_height, kernel_width)
-        reshaped_weight = flipped_weights.reshape(self.in_channels, self.out_channels // self.groups, -1)
+        # Use the optimized im2col function
+        col = im2col(padded_x, kernel_h, kernel_w, stride=(1, 1), padding=(0, 0))
+
+        dW_mat = dz_reshaped.T @ col
+
+        dw = dW_mat.reshape(self.out_channels, self.in_channels, *self.kernel_size).transpose(1, 0, 2, 3)
+        # Use cp.flip for GPU-accelerated flip
+        dw = cp.flip(cp.flip(dw, axis=2), axis=3)
+
+        # Use cp.flip on self.weight.data for GPU-accelerated flip
+        flipped_weights = cp.flip(cp.flip(self.weight.data, axis=2), axis=3)
+        # Use cp.prod for GPU-accelerated product
+        reshaped_weight = flipped_weights.reshape(self.in_channels, self.out_channels // self.groups, cp.prod(cp.array(self.kernel_size)))
         reshaped_weight = reshaped_weight.transpose(1, 0, 2).reshape(self.out_channels, -1)
 
         dcol = dz_reshaped @ reshaped_weight
 
+        # Use the optimized col2im function
         dx_padded = col2im(dcol, padded_x.shape, *self.kernel_size, stride=(1, 1), padding=(0, 0))
 
         dx_expanded = dx_padded[:, :, padding_h:padding_h+expanded_h, padding_w:padding_w+expanded_w]
 
-        dx = dx_expanded[:, :, ::self.stride[0], ::self.stride[1]]
-        
+        dx = dx_expanded[:, :, ::stride_h, ::stride_w]
+
         return dx, dw, db
 
     def extra_repr(self) -> str:
