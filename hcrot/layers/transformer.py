@@ -1,20 +1,13 @@
 import copy
-from typing import *
-from typing_extensions import *
-
-try:
-    import cupy as np
-    IS_CUDA = True
-except ImportError:
-    import numpy as np
-    IS_CUDA = False
+from typing import Tuple, Dict, Optional, List
+import numpy as np
 from numpy.typing import NDArray
 
 from .layer import Linear, Dropout
 from .norm import LayerNorm
 from .module import Module, ModuleList
 from .activation import MultiHeadAttention, GELU
-from hcrot.utils import *
+from hcrot.utils import get_array_module
 
 class TransformerEncoderLayer(Module):
     def __init__(self,
@@ -39,22 +32,16 @@ class TransformerEncoderLayer(Module):
     
     def forward(self, src: NDArray, src_mask: Optional[NDArray] = None) -> NDArray:
         x = src
-        
-        # self Attention
         x = x + self.dropout1(self.self_attn(x, x, x, attn_mask=src_mask))
         x = self.norm1(x)
-        
-        # Feed Forward
         x = x + self.dropout2(self.linear2(self.dropout(self.activation(self.linear1(x)))))
         x = self.norm2(x)
-        
         return x
     
     def backward(self, dz: NDArray) -> Tuple[NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
         dw, db = {}, {}
         parameter_keys = dict(self.named_parameters()).keys()
         
-        # Feed-Forward backward
         dz, dw_norm2, db_norm2 = self.norm2.backward(dz)
         dw['norm2.weight'], db['norm2.bias'] = dw_norm2, db_norm2
         
@@ -65,11 +52,10 @@ class TransformerEncoderLayer(Module):
         dx_ = self.dropout.backward(dx_)
         dx_ = self.activation.backward(dx_)
         dx_, dw_linear1, db_linear1 = self.linear1.backward(dx_)
-        dw['linearr1.weight'], db['linear1.bias'] = dw_linear1, db_linear1
+        dw['linear1.weight'], db['linear1.bias'] = dw_linear1, db_linear1
 
         dx = dz + dx_
         
-        # Multi-Head Attention backward
         dx, dw_norm1, db_norm1 = self.norm1.backward(dx)
         dw['norm1.weight'], db['norm1.bias'] = dw_norm1, db_norm1
         
@@ -118,19 +104,12 @@ class TransformerDecoderLayer(Module):
                 memory_mask: Optional[NDArray] = None
         ) -> NDArray:
         x = tgt
-        
-        # self-attention
         x = x + self.dropout1(self.self_attn(x, x, x, attn_mask=tgt_mask))
         x = self.norm1(x)
-        
-        # multihead attention
         x = x + self.dropout2(self.multihead_attn(x, memory, memory, attn_mask=memory_mask))
         x = self.norm2(x)
-        
-        # feed forward
         x = x + self.dropout3(self.linear2(self.dropout(self.activation(self.linear1(x)))))
         x = self.norm3(x)
-        
         return x
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
@@ -262,7 +241,8 @@ class TransformerDecoder(Module):
         return output
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
-        d_tgt, d_memory = dz, np.zeros(self.memory_shape)
+        xp = get_array_module(dz)
+        d_tgt, d_memory = dz, xp.zeros(self.memory_shape, dtype=dz.dtype)
         dw, db = {}, {}
         parameter_keys = dict(self.named_parameters()).keys()
         
@@ -327,9 +307,7 @@ class Transformer(Module):
             raise RuntimeError('the feature number of src and tgt must be equal to d_model')
         
         memory = self.encoder(src, mask=src_mask)
-
         output = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_mask=memory_mask)
-        
         return output
 
     def backward(self, dz: NDArray) -> Tuple[NDArray, NDArray, Dict[str, NDArray], Dict[str, NDArray]]:
@@ -337,7 +315,6 @@ class Transformer(Module):
         parameter_keys = dict(self.named_parameters()).keys()
         
         dtgt, dmem, dw_decoder, db_decoder = self.decoder.backward(dx)
-        
         dsrc, dw_encoder, db_encoder = self.encoder.backward(dmem)
         
         for k,v in {**dw_decoder, **dw_encoder}.items():
@@ -352,5 +329,5 @@ class Transformer(Module):
         
         return dsrc, dtgt, dw, db
 
-def _get_clone(module, N):
+def _get_clone(module: Module, N: int) -> ModuleList:
     return ModuleList([copy.deepcopy(module) for _ in range(N)])

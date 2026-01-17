@@ -1,40 +1,50 @@
 import random
-from typing import Tuple
-
+from typing import Tuple, Union, Optional, Any
+import numpy as np
 from numpy.typing import NDArray
-try:
-    import cupy as np
-    IS_CUDA = True
-except ImportError:
-    import numpy as np
-    IS_CUDA = False
+from hcrot.utils import get_array_module
 
 class Dataloader:
     def __init__(self, X: NDArray, y: NDArray, batch_size: int = 1, shuffle: bool = True) -> None:
-        self.idx = np.arange(len(X))
-        self.data, self.label = np.array(X), np.array(y)
+        self.data, self.label = np.asarray(X), np.asarray(y)
+        self.idx = np.arange(len(self.data))
         self.batch_size = batch_size
         if shuffle:
-            random.shuffle(self.idx)
-        self.chunk = np.array_split(self.idx, len(X) // batch_size, axis=0)
+            np.random.shuffle(self.idx)
+        self.chunk = np.array_split(self.idx, max(1, len(self.data) // batch_size), axis=0)
         self.position = 0
 
+    def to(self, device: str) -> 'Dataloader':
+        if device == 'cuda':
+            import cupy as cp
+            self.data = cp.asarray(self.data)
+            self.label = cp.asarray(self.label)
+        elif device == 'cpu':
+            if hasattr(self.data, 'get'):
+                self.data = self.data.get()
+                self.label = self.label.get()
+        else:
+            raise ValueError(f"Unsupported device: {device}")
+        return self
+
     def __len__(self) -> int:
-        return len(self.idx) // self.batch_size
+        return len(self.chunk)
 
     def __getitem__(self, i: int) -> Tuple[NDArray, NDArray]:
-        data = self.data[self.chunk[i]]
-        labels = self.label[self.chunk[i]]
-        return np.array(data), np.array(labels)
+        xp = get_array_module(self.data)
+        indices = self.chunk[i]
+        if xp != np:
+            import cupy as cp
+            indices = cp.asarray(indices)
+        return self.data[indices], self.label[indices]
 
     def __iter__(self):
+        self.position = 0
         return self
     
     def __next__(self):
         if self.position >= len(self.chunk):
-            self.position = 0
             raise StopIteration
-        x = self.data[self.chunk[self.position]]
-        y = self.label[self.chunk[self.position]]
+        batch = self.__getitem__(self.position)
         self.position += 1
-        return x, y
+        return batch

@@ -2,14 +2,9 @@ from itertools import chain
 from collections import OrderedDict
 from typing import *
 from typing_extensions import *
-
-try:
-    import cupy as np
-    IS_CUDA = True
-except ImportError:
-    import numpy as np
-    IS_CUDA = False
+import numpy as np
 from numpy.typing import NDArray
+from hcrot.utils import get_array_module, cp
 
 T = TypeVar("T", bound="Module")
 
@@ -18,13 +13,27 @@ def _forward_unimplemented(self, *input: Any) -> None:
         f'Module [{type(self).__name__}] is missing the required "forward" function'
     )
 
-class Parameter(np.ndarray):
-    def __new__(cls, data: np.ndarray):
-        obj = np.asarray(data).view(cls)
-        return obj
-    
-    def __array_wrap__(self, out_arr, context=None):
-        return np.asarray(out_arr)
+class Parameter:
+    def __init__(self, data: NDArray):
+        self.data = data
+
+    def __repr__(self) -> str:
+        return f"Parameter containing:\n{self.data}"
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.data, name)
+
+    @property
+    def shape(self) -> Tuple[int, ...]:
+        return self.data.shape
+
+    @property
+    def ndim(self) -> int:
+        return self.data.ndim
+
+    @property
+    def dtype(self) -> np.dtype:
+        return self.data.dtype
 
 class Module:
     computational_graph: List["Module"] = []
@@ -34,19 +43,25 @@ class Module:
         self._modules: Dict[str, Module] = {}
         self._parameters: Dict[str, Parameter] = {}
         self.training = True
+        self.device = 'cpu'
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Module):
             self._modules[name] = value
+            return
         elif isinstance(value, Parameter):
             self._parameters[name] = value
+            return
+        elif "_parameters" in self.__dict__ and name in self._parameters:
+            self._parameters[name].data = value
+            return
         super().__setattr__(name, value)
 
-    def __getattr__(self, name: str) -> Union[Parameter, "Module"]:
+    def __getattr__(self, name: str) -> Any:
         if "_parameters" in self.__dict__:
             _parameters = self.__dict__["_parameters"]
             if name in _parameters:
-                return _parameters[name]
+                return _parameters[name].data
         if "_modules" in self.__dict__:
             modules = self.__dict__["_modules"]
             if name in modules:
@@ -55,25 +70,12 @@ class Module:
 
     def get_submodule(self, target: str) -> T:
         target = target.split('.')
-
-        if isinstance(self, Sequential):
-            module = self[int(target[0])]
-            if len(target) > 0:
-                return module.get_submodule('.'.join(target[1:]))
-            return self[int(target[0])]
-        
-        if isinstance(self, ModuleList):
-            module: T = self[int(target[0])]
-            target = target[1:]
-            if len(target) > 0:
-                return module.get_submodule('.'.join(target))
-            return module
-        
-        module = self.__getattribute__(target[0])
-        
-        if len(target) > 1:
-            return module.get_submodule('.'.join(target[1:]))
-        
+        module = self
+        for name in target:
+            if isinstance(module, (Sequential, ModuleList)):
+                module = module[int(name)]
+            else:
+                module = getattr(module, name)
         return module
 
     def parameters(self) -> Iterator[Parameter]:
@@ -114,12 +116,32 @@ class Module:
         for _, module in self._modules.items():
             module.eval()
 
+    def to(self, device: str) -> T:
+        self.device = device
+        for name, param in self._parameters.items():
+            if device == 'cuda':
+                if cp is not None:
+                    param.data = cp.asarray(param.data)
+                else:
+                    raise RuntimeError("CuPy is not installed")
+            else:
+                param.data = np.asarray(param.data)
+        
+        for module in self._modules.values():
+            module.to(device)
+        return self
+
     def state_dict(self) -> Dict[str, NDArray]:
-        return {name: param.copy() for name, param in self.named_parameters()}
+        state = {}
+        for name, param in self.named_parameters():
+            data = param.data
+            if hasattr(data, 'get'):
+                data = data.get()
+            state[name] = data.copy()
+        return state
 
     def load_state_dict(self, state_dict: Dict[str, NDArray]) -> None:
         named_params = dict(self.named_parameters())
-
         for name, value in state_dict.items():
             if name not in named_params:
                 raise KeyError(f'Missing key in state_dict: {name}')
@@ -128,9 +150,10 @@ class Module:
             if target_param.shape != value.shape:
                 raise RuntimeError(f'Size mismatch : expected {target_param.shape} but found {value.shape}')
             
-            module_name, param_name = name.rsplit('.', 1)
-            module = self.get_submodule(module_name)
-            module.__setattr__(param_name, Parameter(value))
+            if self.device == 'cuda' and cp is not None:
+                target_param.data = cp.asarray(value)
+            else:
+                target_param.data = np.asarray(value)
 
     def add_module(self, name: str, module: T) -> None:
         self._modules[name] = module
@@ -142,7 +165,6 @@ class Module:
         return ''
 
     def __repr__(self) -> str:
-        # torch.nn.Module
         extra_lines = []
         extra_repr = self.extra_repr()
         if extra_repr:
@@ -168,15 +190,15 @@ class Module:
 class Sequential(Module):
     def __init__(self, *args) -> None:
         super().__init__()
-        self.args = args
+        self._args = args
         for i, module in enumerate(args):
             self.add_module(str(i), module)
     
     def __getitem__(self, idx: Union[int, str]) -> T:
-        return self.args[int(idx)]
+        return self._args[int(idx)]
     
     def forward(self, input):
-        for module in self:
+        for module in self._modules.values():
             input = module(input)
         return input
     
@@ -184,7 +206,7 @@ class ModuleList(Module):
     def __init__(self, modules: Optional[Iterable[Module]] = None) -> None:
         super().__init__()
         if modules is not None:
-            self += modules
+            self.extend(modules)
 
     def __len__(self) -> int:
         return len(self._modules)
@@ -197,15 +219,6 @@ class ModuleList(Module):
             idx += len(self)
         return self._modules[str(idx)]
 
-    def __add__(self, other: Iterable[Module]):
-        combined = ModuleList()
-        for i, module in enumerate(chain(self, other)):
-            combined.add_module(str(i), module)
-        return combined
-    
-    def __iadd__(self, modules: Iterable[Module]):
-        return self.extend(modules)
-    
     def extend(self, modules: Iterable[Module]):
         offset = len(self)
         for i, module in enumerate(modules):
@@ -213,7 +226,6 @@ class ModuleList(Module):
         return self
     
     def __repr__(self) -> str:
-        # torch.nn.ModuleList
         list_of_reprs = [repr(item) for item in self]
         if not len(list_of_reprs):
             return self._get_name() + '()'
@@ -245,8 +257,6 @@ class ModuleList(Module):
         return main_str
 
 class ModuleDict(Module):
-    _modules: dict[str, Module]
-
     def __init__(self, modules: Optional[Mapping[str, Module]] = None) -> None:
         super().__init__()
         if modules is not None:
