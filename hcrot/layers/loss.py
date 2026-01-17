@@ -9,6 +9,9 @@ class MSELoss:
 
     def forward(self, y_pred: NDArray, y_true: NDArray) -> NDArray:
         xp = get_array_module(y_pred)
+        if xp != np:
+            import cupy as cp
+            y_true = cp.asarray(y_true)
         self.y_pred = y_pred
         self.y_true = y_true
         self.B = y_pred.shape[0]
@@ -43,6 +46,9 @@ class CrossEntropyLoss:
 
     def forward(self, input: NDArray, target: NDArray) -> NDArray:
         xp = get_array_module(input)
+        if xp != np:
+            import cupy as cp
+            target = cp.asarray(target)
         if input.ndim == 3:
             B, T, V = input.shape
             logits = input.reshape(B * T, V)

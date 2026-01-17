@@ -124,6 +124,6 @@ def interpolate_backward(dz: NDArray, origin_x: NDArray, mode: str = "nearest") 
     if xp == np:
         np.add.at(dx, (b_full_indices, c_full_indices, h_full_indices, w_full_indices), dz)
     else:
-        xp.scatter_add(dx, (b_full_indices, c_full_indices, h_full_indices, w_full_indices), dz)
+        dx.scatter_add((b_full_indices, c_full_indices, h_full_indices, w_full_indices), dz)
 
     return dx

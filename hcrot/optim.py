@@ -86,8 +86,8 @@ class Optimizer:
     def _initialize(self) -> Dict[str, NDArray]:
         weights = {}
         for key, param in self.model.named_parameters():
-            xp = get_array_module(param)
-            weights[key] = xp.zeros_like(param)
+            xp = get_array_module(param.data)
+            weights[key] = xp.zeros_like(param.data)
         return weights
 
 class SGD(Optimizer):

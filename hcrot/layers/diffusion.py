@@ -89,7 +89,7 @@ class ResidualBlock(Module):
         dw['conv2.weight'], db['conv2.bias'] = dw_conv2, db_conv2
         dtemb = xp.sum(dz_, axis=(2, 3))
         dtemb, dw_time_emb_linear, db_time_emb_linear = self.time_emb_proj.backward(dtemb)
-        dw['time_emb_proj.1.weight'], db['time_emb_proj.1.bias'] = dw_time_emb_linear, db_time_emb_linear
+        dw['time_emb_proj.weight'], db['time_emb_proj.bias'] = dw_time_emb_linear, db_time_emb_linear
         dz_ = self.nonlinearity1.backward(dz_)
         dz_, dw_norm1, db_norm1 = self.norm1.backward(dz_)
         dw['norm1.weight'], db['norm1.bias'] = dw_norm1, db_norm1
@@ -246,7 +246,8 @@ class Upsample(Module):
         if not self.use_conv_transpose:
             dx = interpolate_backward(dx, origin_x=self.x, mode="nearest")
 
-        return dx, {f'conv.{k}': v for k, v in dw.items()}, {f'conv.{k}': v for k, v in db.items()}
+        self.x = None
+        return dx, {'conv.weight': dw}, {'conv.bias': db}
 
 
 class UNetModel(Module):

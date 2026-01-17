@@ -87,6 +87,10 @@ class Embedding(Module):
              self.weight[self.padding_idx].fill(0)
 
     def forward(self, x: NDArray) -> NDArray:
+        xp = get_array_module(self.weight)
+        if xp != np:
+            import cupy as cp
+            x = cp.asarray(x)
         self.x = x
         return self.weight[x]
 
@@ -96,7 +100,7 @@ class Embedding(Module):
         if xp == np:
             xp.add.at(dw, self.x, dz)
         else:
-            xp.scatter_add(dw, self.x, dz)
+            dw.scatter_add(self.x, dz)
         return None, dw
 
     def extra_repr(self) -> str:

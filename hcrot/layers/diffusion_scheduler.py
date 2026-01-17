@@ -91,6 +91,9 @@ class DDPMScheduler:
             sample: NDArray
         ) -> DDPMSchedulerOutput:
         xp = get_array_module(sample)
+        if xp != np:
+            import cupy as cp
+            timestep = cp.asarray(timestep)
         t = timestep
         prev_t = self.previous_timestep(t, xp)
 
@@ -128,6 +131,10 @@ class DDPMScheduler:
             timesteps: NDArray,
         ) -> NDArray:
         xp = get_array_module(original_samples)
+        if xp != np:
+            import cupy as cp
+            timesteps = cp.asarray(timesteps)
+            noise = cp.asarray(noise)
         alphas_cumprod = self._get_buffer('alphas_cumprod', xp)
         
         sqrt_alpha_prod = alphas_cumprod[timesteps] ** 0.5
@@ -144,6 +151,9 @@ class DDPMScheduler:
         return noisy_samples
 
     def previous_timestep(self, timestep: Union[int, NDArray], xp: Any) -> NDArray:
+        if xp != np:
+            import cupy as cp
+            timestep = cp.asarray(timestep)
         timesteps = self._get_buffer('timesteps', xp)
         if self.custom_timesteps or self.num_inference_steps:
             index = xp.nonzero((timesteps == timestep))[0][0]

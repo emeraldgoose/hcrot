@@ -38,15 +38,11 @@ def col2im(col: NDArray, input_shape: Tuple[int, int, int, int], filter_h: int, 
     xp = get_array_module(col)
     B, C, H_in, W_in = input_shape
 
-    if isinstance(stride, int):
-        stride_h, stride_w = (stride, stride)
-    else:
-        stride_h, stride_w = stride
+    if isinstance(stride, int): stride_h, stride_w = (stride, stride)
+    else: stride_h, stride_w = stride
 
-    if isinstance(padding, int):
-        pad_h, pad_w = (padding, padding)
-    else:
-        pad_h, pad_w = padding
+    if isinstance(padding, int): pad_h, pad_w = (padding, padding)
+    else: pad_h, pad_w = padding
 
     H_padded = H_in + 2 * pad_h
     W_padded = W_in + 2 * pad_w
@@ -55,28 +51,16 @@ def col2im(col: NDArray, input_shape: Tuple[int, int, int, int], filter_h: int, 
     W_out = (W_padded - filter_w) // stride_w + 1
 
     col_reshaped = col.reshape(B, H_out, W_out, C, filter_h, filter_w)
-    col_transposed = col_reshaped.transpose(0, 3, 4, 5, 1, 2)
+    col_transposed = col_reshaped.transpose(0, 3, 4, 5, 1, 2) # (B, C, KH, KW, OH, OW)
 
-    img_grad_H = H_in + 2 * pad_h + stride_h - 1
-    img_grad_W = W_in + 2 * pad_w + stride_w - 1
-    img_grad = xp.zeros((B, C, img_grad_H, img_grad_W), dtype=col.dtype)
+    img = xp.zeros((B, C, H_padded, W_padded), dtype=col.dtype)
+    for kh in range(filter_h):
+        h_max = kh + stride_h * H_out
+        for kw in range(filter_w):
+            w_max = kw + stride_w * W_out
+            img[:, :, kh:h_max:stride_h, kw:w_max:stride_w] += col_transposed[:, :, kh, kw, :, :]
 
-    b_idx, c_idx, kh_idx, kw_idx, oh_idx, ow_idx = xp.indices(col_transposed.shape)
-    img_h_idx = oh_idx * stride_h + kh_idx
-    img_w_idx = ow_idx * stride_w + kw_idx
-
-    b_idx_flat = b_idx.ravel()
-    c_idx_flat = c_idx.ravel()
-    img_h_idx_flat = img_h_idx.ravel()
-    img_w_idx_flat = img_w_idx.ravel()
-    col_flat = col_transposed.ravel()
-
-    if xp == np:
-        xp.add.at(img_grad, (b_idx_flat, c_idx_flat, img_h_idx_flat, img_w_idx_flat), col_flat)
-    else:
-        img_grad.scatter_add((b_idx_flat, c_idx_flat, img_h_idx_flat, img_w_idx_flat), col_flat)
-
-    return img_grad[:, :, pad_h : H_in + pad_h, pad_w : W_in + pad_w]
+    return img[:, :, pad_h : H_in + pad_h, pad_w : W_in + pad_w]
 
 class Conv2d(Module):
     def __init__(
@@ -123,6 +107,7 @@ class Conv2d(Module):
         db = xp.sum(dz_reshaped, axis=0).reshape(self.bias.shape)
         dcol = dz_reshaped @ self.col_W.T
         dx = col2im(dcol, self.x.shape, *self.kernel_size, self.stride, self.padding)
+        self.col, self.col_W, self.x = None, None, None
         return dx, dw, db
 
     def extra_repr(self) -> str:
@@ -231,6 +216,7 @@ class ConvTranspose2d(Module):
         dx_padded = col2im(dcol, padded_x.shape, *self.kernel_size, stride=(1, 1), padding=(0, 0))
         dx_expanded = dx_padded[:, :, padding_h:padding_h+expanded_h, padding_w:padding_w+expanded_w]
         dx = dx_expanded[:, :, ::stride_h, ::stride_w]
+        self.X = None
         return dx, dw, db
 
     def extra_repr(self) -> str:
