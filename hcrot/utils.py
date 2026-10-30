@@ -34,11 +34,10 @@ def load(path: str) -> Mapping[str, NDArray]:
     with open(path, mode='rb') as f:
         return pickle.load(f)
     
-def masked_fill(x: NDArray, mask: NDArray[np.bool_], fill_value: Union[int, float]) -> NDArray:
+def masked_fill(x, mask, fill_value):
     if x.ndim != mask.ndim:
-        mask = np.tile(mask, reps=(*x.shape[:-2],1,1))
-    masked_array = np.ma.array(x, mask=np.logical_not(mask)).filled(fill_value=fill_value)
-    return masked_array
+        mask = np.broadcast_to(mask, x.shape)
+    return np.where(mask.astype(bool), fill_value, x)
 
 def _calculated_fan_in_and_fan_out(weight: NDArray) -> Tuple[int, int]:
     if weight.ndim < 2:

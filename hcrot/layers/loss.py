@@ -6,7 +6,7 @@ class MSELoss:
     def __call__(self, y_pred: NDArray, y_true: NDArray) -> NDArray:
         return self.forward(y_pred, y_true)
 
-    def forward(self, y_pred: NDArray, y_true: Union[NDArray[np.int_], NDArray[np.float_]]) -> NDArray:
+    def forward(self, y_pred: NDArray, y_true: Union[NDArray[np.int_], NDArray[np.float64]]) -> NDArray:
         self.y_pred = y_pred
         self.y_true = y_true
         self.B = y_pred.shape[0]
